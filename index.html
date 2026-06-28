@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VRP Corona · Optimización de rutas · Veracruz</title>
+  <style>
+/* ═══════════════════════════════════════════════════════════════════
+   styles.css — Diseño visual completo del sistema VRP
+   Paleta industrial-técnica: navy + sky + teal sobre blanco.
+   Tipografía: Inter (display) + JetBrains Mono (datos y códigos).
+   ═══════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ── Tokens ────────────────────────────────────────────────────── */
+:root {
+  --c-navy:    #0F2744;
+  --c-blue:    #1A5FA8;
+  --c-sky:     #2A78D6;
+  --c-ice:     #E6F1FB;
+  --c-teal:    #0E8A6E;
+  --c-mint:    #E2F4EF;
+  --c-amber:   #D97706;
+  --c-cream:   #FEF3C7;
+  --c-red:     #E34948;
+  --c-red-bg:  #FEF2F2;
+  --c-slate:   #475569;
+  --c-muted:   #94A3B8;
+  --c-border:  #CBD5E1;
+  --c-surface: #F8FAFC;
+  --c-white:   #FFFFFF;
+  --c-green:   #0E8A6E;
+
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --shadow:    0 1px 4px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+
+  --nav-w: 220px;
+  --header-h: 56px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--c-surface);
+  color: var(--c-navy);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Layout: Sidebar + Main ────────────────────────────────────── */
+.layout { display: flex; min-height: 100vh; }
+
+/* ─── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--nav-w);
+  background: var(--c-navy);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: transform .25s;
+}
+
+.sidebar__brand {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.sidebar__logo {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-sky);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sidebar__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-white);
+  line-height: 1.25;
+}
+.sidebar__sub {
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  margin-top: 2px;
+}
+
+.nav {
+  flex: 1;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: rgba(255,255,255,.55);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, color .12s;
+}
+.nav__btn:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+.nav__btn--active { background: var(--c-sky); color: var(--c-white); }
+.nav__btn--active:hover { background: #1A65BA; }
+
+.nav__icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+
+.nav__section {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+  padding: 10px 12px 4px;
+}
+
+.sidebar__footer {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  font-size: 10px;
+  color: rgba(255,255,255,.25);
+  line-height: 1.5;
+  font-family: var(--font-mono);
+}
+
+/* ─── Main ────────────────────────────────────────────────────── */
+.main {
+  margin-left: var(--nav-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.topbar {
+  height: var(--header-h);
+  background: var(--c-white);
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-navy);
+}
+.topbar__sub {
+  font-size: 11px;
+  color: var(--c-muted);
+  margin-top: 1px;
+}
+
+.topbar__actions { display: flex; gap: 8px; align-items: center; }
+
+.content {
+  padding: 24px 28px;
+  flex: 1;
+}
+
+/* ── Sections ───────────────────────────────────────────────────── */
+.section { display: none; }
+.section--active { display: block; }
+
+/* ── Cards ──────────────────────────────────────────────────────── */
+.card {
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card--last { margin-bottom: 0; }
+.card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-navy);
+  margin-bottom: 4px;
+}
+.card__sub {
+  font-size: 12px;
+  color: var(--c-muted);
+  margin-bottom: 14px;
+}
+.mt-1 { margin-top: 16px; }
+
+/* ── KPI Grid ───────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.kpi-grid--sm { grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); }
+.kpi {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.kpi__icon { font-size: 18px; margin-bottom: 6px; }
+.kpi__label { font-size: 11px; color: var(--c-muted); margin-bottom: 4px; }
+.kpi__value { font-size: 22px; font-weight: 700; color: var(--c-navy); line-height: 1; }
+.kpi__delta { font-size: 11px; margin-top: 4px; color: var(--c-muted); }
+.kpi__delta.pos { color: var(--c-teal); }
+.kpi__delta.neg { color: var(--c-red); }
+
+/* ── Charts ─────────────────────────────────────────────────────── */
+.chart-wrap {
+  width: 100%;
+  position: relative;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 16px;
+  margin-bottom: 0;
+}
+@media (max-width: 700px) { .chart-row { grid-template-columns: 1fr; } }
+
+/* ── Forms ──────────────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 580px) { .form-grid { grid-template-columns: 1fr; } }
+.form-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-slate);
+}
+.field input,
+.field select {
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--c-navy);
+  background: var(--c-white);
+  transition: border-color .12s;
+}
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--c-sky);
+  box-shadow: 0 0 0 3px rgba(42,120,214,.1);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--c-white);
+  color: var(--c-navy);
+  transition: all .12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--c-surface); }
+
+.btn--primary { background: var(--c-sky); color: #fff; border-color: var(--c-sky); }
+.btn--primary:hover { background: #185FA5; border-color: #185FA5; }
+
+.btn--teal { background: var(--c-teal); color: #fff; border-color: var(--c-teal); }
+.btn--teal:hover { background: #0A6651; border-color: #0A6651; }
+
+.btn--amber { background: var(--c-amber); color: #fff; border-color: var(--c-amber); }
+.btn--amber:hover { background: #B45309; border-color: #B45309; }
+
+.btn--danger { color: var(--c-red); border-color: currentColor; }
+.btn--danger:hover { background: var(--c-red-bg); }
+
+.btn--icon { padding: 4px 8px; font-size: 11px; }
+
+.btn-row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+
+/* ── Table ──────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+  color: var(--c-slate);
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--c-white);
+}
+tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #F1F5F9;
+  color: var(--c-navy);
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--c-surface); }
+
+.fw-medium { font-weight: 600; }
+.text-muted { color: var(--c-slate); }
+.small { font-size: 11px; }
+
+/* ── Badge ──────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.badge--alta  { background: var(--c-ice); color: var(--c-blue); }
+.badge--media { background: var(--c-cream); color: #92400E; }
+.badge--baja  { background: var(--c-mint); color: #065F46; }
+
+/* ── Empty state ────────────────────────────────────────────────── */
+.empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--c-muted);
+  font-size: 13px;
+}
+
+/* ── Tabla header row ───────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.section-header .card__title { margin-bottom: 0; }
+
+/* ── Optimización ────────────────────────────────────────────────── */
+.opt-rutas { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.opt-ruta {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.opt-ruta__header {
+  background: var(--c-navy);
+  color: var(--c-white);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.opt-ruta__meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255,255,255,.6);
+}
+.opt-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.opt-step:last-child { border-bottom: none; }
+.opt-step__num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--c-ice);
+  color: var(--c-blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.opt-step__info { flex: 1; }
+.opt-step__name { font-size: 12px; font-weight: 600; }
+.opt-step__meta { font-size: 11px; color: var(--c-muted); }
+.opt-step__km { font-size: 11px; color: var(--c-slate); white-space: nowrap; }
+
+/* ── Savings box ────────────────────────────────────────────────── */
+.savings-box {
+  background: var(--c-ice);
+  border: 1px solid rgba(42,120,214,.2);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 14px;
+}
+.savings-box__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-blue);
+  margin-bottom: 8px;
+}
+.savings-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--c-blue);
+  padding: 3px 0;
+}
+.savings-row--total {
+  font-weight: 700;
+  border-top: 1px solid rgba(42,120,214,.2);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+/* ── ETL Import ─────────────────────────────────────────────────── */
+.etl-drop {
+  border: 2px dashed var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.etl-drop:hover { border-color: var(--c-sky); background: var(--c-ice); }
+.etl-drop__icon { font-size: 36px; margin-bottom: 10px; }
+.etl-drop__text { font-size: 14px; font-weight: 600; color: var(--c-navy); }
+.etl-drop__sub { font-size: 12px; color: var(--c-muted); margin-top: 4px; }
+
+.etl-nombre {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-slate);
+  margin-top: 10px;
+  min-height: 16px;
+}
+.etl-status {
+  font-size: 12px;
+  color: var(--c-muted);
+  margin-top: 6px;
+  min-height: 16px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+.etl-status--ok    { background: var(--c-mint); color: var(--c-teal); font-weight: 500; }
+.etl-status--error { background: var(--c-red-bg); color: var(--c-red); font-weight: 500; }
+
+/* ── Export cards ───────────────────────────────────────────────── */
+.export-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 14px; }
+.export-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.export-card__icon { font-size: 24px; margin-bottom: 8px; }
+.export-card__title { font-size: 13px; font-weight: 700; color: var(--c-navy); margin-bottom: 4px; }
+.export-card__desc { font-size: 11px; color: var(--c-muted); margin-bottom: 12px; line-height: 1.5; }
+.export-card__count { font-family: var(--font-mono); font-size: 10px; color: var(--c-slate); margin-bottom: 10px; }
+
+/* ── Power BI tips ──────────────────────────────────────────────── */
+.pbi-tip {
+  background: var(--c-cream);
+  border: 1px solid #FCD34D;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 12px;
+  color: #92400E;
+  line-height: 1.7;
+}
+.pbi-tip strong { color: #78350F; }
+.pbi-tip code {
+  font-family: var(--font-mono);
+  background: rgba(0,0,0,.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--c-navy);
+  color: var(--c-white);
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-md);
+  z-index: 9999;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all .25s;
+  max-width: 360px;
+}
+.toast--show { transform: translateY(0); opacity: 1; }
+.toast--warn  { background: var(--c-amber); }
+.toast--error { background: var(--c-red); }
+
+/* ── Divider ────────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--c-border); margin: 16px 0; }
+
+/* ── Mobile toggle ──────────────────────────────────────────────── */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--c-navy);
+}
+@media (max-width: 768px) {
+  .menu-toggle { display: block; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar--open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .content { padding: 16px; }
+  .topbar { padding: 0 16px; }
+  .form-grid--3 { grid-template-columns: 1fr 1fr; }
+}
+
+
+.etl-drop--over {
+  border-color: var(--c-sky);
+  background: var(--c-ice);
+}
+
+</style>
+  <!-- Íconos Tabler (CDN) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/tabler-icons.min.css" />
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ═══════════════════════════════════════════════
+       SIDEBAR — navegación lateral fija
+  ════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__brand">
+      <div class="sidebar__logo">VRP · Corona</div>
+      <div class="sidebar__name">Rutas de distribución</div>
+      <div class="sidebar__sub">Cervecería Corona · Veracruz</div>
+    </div>
+
+    <nav class="nav" role="navigation">
+      <div class="nav__section">Análisis</div>
+
+      <button class="nav__btn" data-tab="dashboard" onclick="navegar('dashboard')">
+        <span class="nav__icon"><i class="ti ti-layout-dashboard"></i></span>
+        Dashboard
+      </button>
+
+      <div class="nav__section">Datos</div>
+
+      <button class="nav__btn" data-tab="clientes" onclick="navegar('clientes')">
+        <span class="nav__icon"><i class="ti ti-users"></i></span>
+        Clientes
+      </button>
+
+      <button class="nav__btn" data-tab="rutas" onclick="navegar('rutas')">
+        <span class="nav__icon"><i class="ti ti-route"></i></span>
+        Rutas diarias
+      </button>
+
+      <div class="nav__section">Motor VRP</div>
+
+      <button class="nav__btn" data-tab="optimizar" onclick="navegar('optimizar')">
+        <span class="nav__icon"><i class="ti ti-bolt"></i></span>
+        Optimizar
+      </button>
+
+      <div class="nav__section">Herramientas</div>
+
+      <button class="nav__btn" data-tab="importar" onclick="navegar('importar')">
+        <span class="nav__icon"><i class="ti ti-file-import"></i></span>
+        Importar ETL
+      </button>
+
+      <button class="nav__btn" data-tab="exportar" onclick="navegar('exportar')">
+        <span class="nav__icon"><i class="ti ti-download"></i></span>
+        Exportar Power BI
+      </button>
+    </nav>
+
+    <div class="sidebar__footer">
+      IIS · 5to cuatrimestre<br>
+      Prácticas profesionales 2025<br>
+      Motor: Nearest Neighbor VRP
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN — contenido principal
+  ════════════════════════════════════════════════ -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div>
+        <button class="menu-toggle" onclick="toggleMenu()" aria-label="Menú">☰</button>
+        <div class="topbar__title" id="topbar-title">Dashboard</div>
+        <div class="topbar__sub">Optimización de rutas · Cervecería Corona</div>
+      </div>
+      <div class="topbar__actions">
+        <!-- Botón importar ETL siempre visible -->
+        <button class="btn btn--amber" onclick="navegar('importar')">
+          <i class="ti ti-file-import"></i> Cargar ETL
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ════════════════════════════════════
+           DASHBOARD
+      ═══════════════════════════════════════ -->
+      <div id="sec-dashboard" class="section">
+        <div class="kpi-grid" id="kpi-grid">
+          <!-- renderDashboard() lo puebla -->
+        </div>
+
+        <div class="chart-row">
+          <div class="card card--last">
+            <div class="card__title">Costo diario de operación</div>
+            <div class="chart-wrap" style="height:200px">
+              <canvas id="chart-costos"></canvas>
+            </div>
+          </div>
+          <div class="card card--last">
+            <div class="card__title">Clientes por prioridad</div>
+            <div class="chart-wrap" style="height:200px">
+              <canvas id="chart-prio"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           CLIENTES
+      ═══════════════════════════════════════ -->
+      <div id="sec-clientes" class="section">
+        <div class="card">
+          <div class="card__title">Agregar cliente</div>
+          <div class="form-grid">
+            <div class="field"><label>Nombre del cliente</label>
+              <input id="c-nombre" placeholder="Ej. Oxxo Boca del Río"></div>
+            <div class="field"><label>Dirección</label>
+              <input id="c-dir" placeholder="Calle, número, colonia"></div>
+            <div class="field"><label>Demanda (cajas/día)</label>
+              <input id="c-demanda" type="number" min="1" placeholder="Ej. 48"></div>
+            <div class="field"><label>Tiempo de descarga (min)</label>
+              <input id="c-tiempo" type="number" min="1" placeholder="Ej. 12"></div>
+            <div class="field"><label>Ventana de entrega</label>
+              <input id="c-ventana" placeholder="Ej. 07:00–10:00"></div>
+            <div class="field"><label>Prioridad</label>
+              <select id="c-prioridad">
+                <option value="alta">Alta</option>
+                <option value="media" selected>Media</option>
+                <option value="baja">Baja</option>
+              </select></div>
+            <div class="field"><label>Visitas por semana</label>
+              <input id="c-freq" type="number" min="1" max="7" placeholder="Ej. 3"></div>
+            <div class="field"><label>Km desde depósito</label>
+              <input id="c-km" type="number" min="0.1" step="0.1" placeholder="Ej. 14"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--primary" onclick="agregarCliente()">
+              <i class="ti ti-plus"></i> Agregar cliente
+            </button>
+          </div>
+        </div>
+
+        <div class="card card--last">
+          <div class="section-header">
+            <div class="card__title">Clientes registrados (<span id="cnt-clientes">0</span>)</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Cliente</th><th>Dirección</th><th>Demanda</th>
+                  <th>Descarga</th><th>Ventana</th><th>Prioridad</th>
+                  <th>Frec.</th><th>Km</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-clientes"></tbody>
+            </table>
+          </div>
+          <div id="empty-clientes" class="empty" style="display:none">
+            Sin clientes. Agrega el primero arriba o carga el ETL.
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           RUTAS DIARIAS
+      ═══════════════════════════════════════ -->
+      <div id="sec-rutas" class="section">
+        <div class="card">
+          <div class="card__title">Registrar ruta diaria</div>
+          <div class="card__sub">
+            Captura los datos reales de cada día de operación. Mínimo 20 días para análisis estadístico válido.
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Fecha</label>
+              <input id="r-fecha" type="date"></div>
+            <div class="field"><label>Número de entregas</label>
+              <input id="r-entregas" type="number" min="1" placeholder="Ej. 18"></div>
+            <div class="field"><label>Km totales recorridos</label>
+              <input id="r-km" type="number" min="1" placeholder="Ej. 125"></div>
+            <div class="field"><label>Tiempo total de ruta (min)</label>
+              <input id="r-tiempo" type="number" min="1" placeholder="Ej. 470"></div>
+            <div class="field"><label>Gasolina consumida (L)</label>
+              <input id="r-gasolina" type="number" min="0.1" step="0.1" placeholder="Ej. 18"></div>
+            <div class="field"><label>Precio gasolina ese día ($/L)</label>
+              <input id="r-pgas" type="number" step="0.01" placeholder="Ej. 24.50" value="24"></div>
+            <div class="field"><label>Costo por km ($)</label>
+              <input id="r-cpm" type="number" step="0.1" placeholder="Ej. 8.50" value="8.5"></div>
+            <div class="field"><label>Costo hora-operador ($/hr)</label>
+              <input id="r-cophora" type="number" placeholder="Ej. 80" value="80"></div>
+            <div class="field"><label>% entregas fuera de ventana</label>
+              <input id="r-fuera" type="number" min="0" max="100" placeholder="Ej. 12"></div>
+            <div class="field"><label>Notas del día</label>
+              <input id="r-notas" placeholder="Tráfico, incidencias, etc."></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--primary" onclick="agregarRuta()">
+              <i class="ti ti-plus"></i> Registrar ruta
+            </button>
+          </div>
+        </div>
+
+        <div class="card card--last">
+          <div class="section-header">
+            <div class="card__title">Historial de rutas (<span id="cnt-rutas">0</span>)</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th><th>Entregas</th><th>Km</th><th>Tiempo</th>
+                  <th>Gasolina</th><th>$/L</th><th>Costo total</th>
+                  <th>% fuera</th><th>Notas</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-rutas"></tbody>
+            </table>
+          </div>
+          <div id="empty-rutas" class="empty" style="display:none">
+            Sin rutas. Ingresa los datos de la operación diaria o carga el ETL.
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           OPTIMIZAR
+      ═══════════════════════════════════════ -->
+      <div id="sec-optimizar" class="section">
+        <div class="card">
+          <div class="card__title">Parámetros del vehículo</div>
+          <div class="card__sub">Configura una sola vez. Pregunta al jefe de flota si no los tienes.</div>
+          <div class="form-grid form-grid--3">
+            <div class="field"><label>Capacidad máxima (cajas)</label>
+              <input id="v-cap" type="number" value="300"></div>
+            <div class="field"><label>Costo por km ($)</label>
+              <input id="v-cpm" type="number" step="0.1" value="8.5"></div>
+            <div class="field"><label>Rendimiento (km/L)</label>
+              <input id="v-rend" type="number" step="0.1" value="7"></div>
+            <div class="field"><label>Precio gasolina ($/L)</label>
+              <input id="v-gas" type="number" step="0.01" value="24"></div>
+            <div class="field"><label>Costo hora-operador ($/hr)</label>
+              <input id="v-hora" type="number" value="80"></div>
+            <div class="field"><label>Jornada máxima (horas)</label>
+              <input id="v-jornada" type="number" value="8"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--teal" onclick="ejecutarOptimizacion()">
+              <i class="ti ti-bolt"></i> Ejecutar optimización
+            </button>
+          </div>
+        </div>
+
+        <div id="resultado-opt" style="display:none"></div>
+      </div>
+
+      <!-- ════════════════════════════════════
+           IMPORTAR ETL
+      ═══════════════════════════════════════ -->
+      
+      <div id="sec-importar" class="section">
+        <div class="card">
+          <div class="card__title">Importar archivo ETL</div>
+          <div class="card__sub">
+            Carga el archivo <strong>ETL_VRP_Corona_Veracruz.xlsx</strong> con tus datos reales.
+            El sistema leerá las hojas CLIENTES, RUTAS_DIARIAS y VEHICULO automáticamente.
+          </div>
+
+          <input type="file" id="etl-input" accept=".xlsx,.xls"
+                 style="display:none" onchange="onETLSeleccionado(event)" />
+
+          <div id="etl-drop" class="etl-drop"
+               onclick="document.getElementById('etl-input').click()"
+               ondragover="event.preventDefault();this.classList.add('etl-drop--over')"
+               ondragleave="this.classList.remove('etl-drop--over')"
+               ondrop="event.preventDefault();this.classList.remove('etl-drop--over');onETLDrop(event)">
+            <div class="etl-drop__icon"><i class="ti ti-file-import" style="font-size:40px;color:var(--c-sky)"></i></div>
+            <div class="etl-drop__text">Haz clic aquí o arrastra tu ETL</div>
+            <div class="etl-drop__sub">Acepta archivos .xlsx — el ETL que llenaste con tus datos reales</div>
+          </div>
+
+          <div class="etl-nombre" id="etl-nombre">Ningún archivo seleccionado</div>
+          <div class="etl-status" id="etl-status"></div>
+        </div>
+
+        <div class="card card--last">
+          <div class="card__title">¿Cómo funciona la importación?</div>
+          <div class="card__sub">El sistema lee cada hoja del ETL y reemplaza los datos de ejemplo con los tuyos.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="font-size:20px;flex-shrink:0">1️⃣</span>
+              <div><div style="font-weight:600;font-size:13px">Descarga el ETL</div>
+              <div style="font-size:12px;color:var(--c-muted)">Si aún no lo tienes, dile a Claude que genere el archivo ETL_VRP_Corona_Veracruz.xlsx.</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="font-size:20px;flex-shrink:0">2️⃣</span>
+              <div><div style="font-weight:600;font-size:13px">Llénalo durante tus prácticas</div>
+              <div style="font-size:12px;color:var(--c-muted)">Hoja CLIENTES: todos tus clientes reales. Hoja RUTAS_DIARIAS: un registro por día. Hoja VEHICULO: datos del camión.</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="font-size:20px;flex-shrink:0">3️⃣</span>
+              <div><div style="font-weight:600;font-size:13px">Súbelo aquí</div>
+              <div style="font-size:12px;color:var(--c-muted)">Haz clic en la zona azul de arriba o arrastra el archivo. Los datos de ejemplo se reemplazan con los reales automáticamente.</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="font-size:20px;flex-shrink:0">4️⃣</span>
+              <div><div style="font-weight:600;font-size:13px">Optimiza y exporta</div>
+              <div style="font-size:12px;color:var(--c-muted)">Ve a Optimizar, ejecuta el VRP y luego exporta los resultados a Power BI.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="sec-exportar" class="section">
+        <div class="card">
+          <div class="card__title">Exportar a Excel para Power BI</div>
+          <div class="card__sub">
+            Genera archivos .xlsx con las columnas exactas que Power BI necesita. Sin limpieza manual.
+          </div>
+
+          <div class="export-grid">
+            <div class="export-card">
+              <div class="export-card__icon">👥</div>
+              <div class="export-card__title">Base de clientes</div>
+              <div class="export-card__desc">
+                Tabla maestra con nombre, dirección, demanda, ventana, prioridad y km.
+                Úsala para segmentar en Power BI.
+              </div>
+              <div class="export-card__count" id="cnt-exp-c">—</div>
+              <button class="btn btn--teal" onclick="Exportar.clientes()">
+                <i class="ti ti-download"></i> clientes.xlsx
+              </button>
+            </div>
+
+            <div class="export-card">
+              <div class="export-card__icon">🗺</div>
+              <div class="export-card__title">Historial de rutas</div>
+              <div class="export-card__desc">
+                Registro diario: km, tiempo, gasolina, costo calculado y % fuera de ventana.
+                Clave para el análisis de tendencias.
+              </div>
+              <div class="export-card__count" id="cnt-exp-r">—</div>
+              <button class="btn btn--teal" onclick="Exportar.rutas()">
+                <i class="ti ti-download"></i> rutas_historico.xlsx
+              </button>
+            </div>
+
+            <div class="export-card">
+              <div class="export-card__icon">⚡</div>
+              <div class="export-card__title">Resultados VRP</div>
+              <div class="export-card__desc">
+                Comparativa antes/después: km, costo, % reducción, ahorro mensual y CO₂.
+                Lista para tu presentación ejecutiva.
+              </div>
+              <div class="export-card__count" id="cnt-exp-o">—</div>
+              <button class="btn btn--teal" onclick="Exportar.optimizacion()">
+                <i class="ti ti-download"></i> optimizacion_vrp.xlsx
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card--last">
+          <div class="card__title">Instrucciones Power BI</div>
+          <div class="pbi-tip">
+            <strong>Paso 1 —</strong> Descarga los tres archivos .xlsx arriba.<br>
+            <strong>Paso 2 —</strong> En Power BI Desktop: <em>Inicio → Obtener datos → Excel → selecciona el archivo.</em><br>
+            <strong>Paso 3 —</strong> Importa las tres tablas. Power BI detecta las columnas automáticamente.<br>
+            <strong>Paso 4 —</strong> Relaciona por <code>fecha</code> (rutas ↔ optimización) y por <code>prioridad</code> (clientes ↔ rutas).<br>
+            <strong>Paso 5 —</strong> Crea medida DAX: <code>Ahorro = SUM(costo_actual) - SUM(costo_optimizado)</code><br>
+            <strong>Tip —</strong> Visual de <em>Línea</em> para tendencia de costos, <em>Mapa</em> para clientes, <em>Barras apiladas</em> para antes/después.
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- /.main -->
+</div><!-- /.layout -->
+
+<!-- ═══════════════════════════════════
+     SCRIPTS — orden importante:
+     1. Librerías externas
+     2. Módulos propios (data → vrp → etl → charts → export → app)
+════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+  // Menú móvil
+  function toggleMenu() {
+    document.getElementById("sidebar").classList.toggle("sidebar--open");
+  }
+  // Actualizar título del topbar al navegar
+  const TITLES = {
+    dashboard: "Dashboard",
+    clientes:  "Clientes",
+    rutas:     "Rutas diarias",
+    optimizar: "Optimizador VRP",
+    importar:  "Importar ETL",
+    exportar:  "Exportar Power BI",
+  };
+  const _navOrig = navegar;
+  // Parchar navegar para actualizar el título
+  function navegar(tab) {
+    _navOrig(tab);
+    document.getElementById("topbar-title").textContent = TITLES[tab] || tab;
+  }
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// data.js — Estado global de la aplicación
+// Único archivo que contiene TODOS los datos en memoria.
+// Todos los demás módulos leen y escriben aquí.
+// ═══════════════════════════════════════════════════════════════════
+
+const AppData = {
+  clientes: [
+    { nombre:"Oxxo Boca del Río",     dir:"Av. Ruiz Cortines 102, Boca del Río", demanda:48,  tiempo:12, ventana:"07:00–10:00", prioridad:"alta",  freq:6, km:14 },
+    { nombre:"Chedraui Veracruz",     dir:"Blvd. Adolfo Ruiz Cortines 450",       demanda:120, tiempo:25, ventana:"08:00–12:00", prioridad:"alta",  freq:5, km:8  },
+    { nombre:"La Bodeguita",          dir:"Av. 20 de Noviembre 33",               demanda:30,  tiempo:10, ventana:"09:00–13:00", prioridad:"media", freq:3, km:5  },
+    { nombre:"Tienda El Farol",       dir:"Calle Independencia 78",               demanda:18,  tiempo:8,  ventana:"08:00–11:00", prioridad:"baja",  freq:2, km:12 },
+    { nombre:"Súper Lomas",           dir:"Fracc. Lomas del Estadio",             demanda:60,  tiempo:18, ventana:"10:00–14:00", prioridad:"media", freq:4, km:18 },
+    { nombre:"Minisuper El Marino",   dir:"Puerto de Veracruz centro",            demanda:24,  tiempo:10, ventana:"07:30–11:00", prioridad:"media", freq:4, km:6  },
+  ],
+
+  rutas: [
+    { fecha:"2025-06-18", entregas:16, km:118, tiempo:455, gasolina:17, cpm:8.5, cophora:80, fuera:12, pgas:24,   notas:"" },
+    { fecha:"2025-06-19", entregas:18, km:125, tiempo:470, gasolina:18, cpm:8.5, cophora:80, fuera:8,  pgas:24,   notas:"" },
+    { fecha:"2025-06-20", entregas:15, km:132, tiempo:490, gasolina:19, cpm:8.5, cophora:80, fuera:20, pgas:24.5, notas:"Tráfico zona centro" },
+    { fecha:"2025-06-23", entregas:19, km:121, tiempo:445, gasolina:17, cpm:8.5, cophora:80, fuera:5,  pgas:24,   notas:"" },
+    { fecha:"2025-06-24", entregas:17, km:128, tiempo:465, gasolina:18, cpm:8.5, cophora:80, fuera:10, pgas:24,   notas:"" },
+  ],
+
+  vehiculo: {
+    capacidad: 300,
+    costoPorKm: 8.5,
+    rendimiento: 7,
+    precioGas: 24,
+    costoOperador: 80,
+    jornadaMax: 8,
+  },
+
+  ultimaOptimizacion: null,
+
+  // ── Helpers de cálculo ─────────────────────────────────────────
+  calcCostoRuta(r) {
+    return Math.round(r.km * r.cpm + (r.tiempo / 60) * r.cophora + r.gasolina * (r.pgas || 24));
+  },
+
+  promedioRutas() {
+    if (!this.rutas.length) return null;
+    const n = this.rutas.length;
+    return {
+      km:       Math.round(this.rutas.reduce((a, r) => a + r.km, 0) / n),
+      costo:    Math.round(this.rutas.reduce((a, r) => a + this.calcCostoRuta(r), 0) / n),
+      entregas: Math.round(this.rutas.reduce((a, r) => a + r.entregas, 0) / n),
+      fuera:    Math.round(this.rutas.reduce((a, r) => a + r.fuera, 0) / n),
+    };
+  },
+
+  // ── Persistencia en localStorage ──────────────────────────────
+  guardar() {
+    try {
+      localStorage.setItem("vrp_clientes",  JSON.stringify(this.clientes));
+      localStorage.setItem("vrp_rutas",     JSON.stringify(this.rutas));
+      localStorage.setItem("vrp_vehiculo",  JSON.stringify(this.vehiculo));
+    } catch(_) {}
+  },
+
+  cargar() {
+    try {
+      const c = localStorage.getItem("vrp_clientes");
+      const r = localStorage.getItem("vrp_rutas");
+      const v = localStorage.getItem("vrp_vehiculo");
+      if (c) this.clientes  = JSON.parse(c);
+      if (r) this.rutas     = JSON.parse(r);
+      if (v) this.vehiculo  = { ...this.vehiculo, ...JSON.parse(v) };
+    } catch(_) {}
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// vrp.js — Motor de optimización de rutas (Vehicle Routing Problem)
+//
+// Algoritmo: Nearest Neighbor con ordenamiento por prioridad.
+// Complejidad: O(n²) — suficiente para hasta ~200 clientes.
+// ═══════════════════════════════════════════════════════════════════
+
+const VRP = {
+
+  // Punto de entrada principal
+  optimizar(clientes, vehiculo) {
+    if (!clientes.length) throw new Error("Sin clientes para optimizar.");
+
+    // 1. Ordenar: alta prioridad primero, luego por distancia ascendente
+    const PRIO = { alta: 0, media: 1, baja: 2 };
+    const ordenados = [...clientes].sort((a, b) => {
+      if (PRIO[a.prioridad] !== PRIO[b.prioridad])
+        return PRIO[a.prioridad] - PRIO[b.prioridad];
+      return a.km - b.km;
+    });
+
+    // 2. Construir rutas respetando capacidad y jornada
+    const rutas = [];
+    let rutaActual = [], carga = 0, kmRuta = 0, minRuta = 0;
+
+    for (const cliente of ordenados) {
+      const tiempoCliente = cliente.tiempo + 8; // descarga + traslado estimado
+      const excedeCapacidad = carga + cliente.demanda > vehiculo.capacidad;
+      const excedeJornada   = (minRuta + tiempoCliente) / 60 > vehiculo.jornadaMax;
+
+      if (excedeCapacidad || (rutaActual.length > 0 && excedeJornada)) {
+        rutas.push(this._cerrarRuta(rutaActual, kmRuta, minRuta, vehiculo));
+        rutaActual = []; carga = 0; kmRuta = 0; minRuta = 0;
+      }
+
+      rutaActual.push(cliente);
+      carga   += cliente.demanda;
+      kmRuta  += cliente.km;
+      minRuta += tiempoCliente;
+    }
+    if (rutaActual.length) rutas.push(this._cerrarRuta(rutaActual, kmRuta, minRuta, vehiculo));
+
+    // 3. Calcular métricas comparativas
+    return this._calcularResultados(rutas, vehiculo);
+  },
+
+  _cerrarRuta(clientes, km, minutos, v) {
+    const horas  = minutos / 60;
+    const costo  = Math.round(km * v.costoPorKm + horas * v.costoOperador + (km / v.rendimiento) * v.precioGas);
+    const carga  = clientes.reduce((a, c) => a + c.demanda, 0);
+    return { clientes: [...clientes], km, minutos, horas: Math.round(horas * 10) / 10, costo, carga };
+  },
+
+  _calcularResultados(rutas, v) {
+    const totalKm   = rutas.reduce((a, r) => a + r.km, 0);
+    const totalMin  = rutas.reduce((a, r) => a + r.minutos, 0);
+    const totalCost = rutas.reduce((a, r) => a + r.costo, 0);
+    const avgKmOpt  = Math.round(totalKm / rutas.length);
+
+    // Comparar con promedio actual de rutas registradas
+    const avg = AppData.promedioRutas();
+    const avgKmActual   = avg ? avg.km   : 125;
+    const avgCostoActual = avg ? avg.costo : 1400;
+
+    const savingKm   = Math.max(0, avgKmActual - avgKmOpt);
+    const savingPct  = Math.round(savingKm / avgKmActual * 100);
+    const costoOptDia = Math.round(totalCost / rutas.length);
+    const ahorroDia  = Math.max(0, avgCostoActual - costoOptDia);
+    const ahorroMes  = ahorroDia * 22;
+    const co2        = Math.round(savingKm * 2.31 * 10) / 10;
+
+    return {
+      rutas, totalKm, avgKmOpt,
+      avgKmActual, avgCostoActual, costoOptDia,
+      savingPct, ahorroDia, ahorroMes, co2,
+      numVehiculos: rutas.length,
+    };
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// etl.js — Importador del archivo ETL Excel
+//
+// Lee el archivo ETL_VRP_Corona_Veracruz.xlsx que el usuario llena
+// y carga los datos en AppData (clientes, rutas, vehiculo).
+//
+// Depende de: SheetJS (xlsx.full.min.js) cargado en index.html
+// ═══════════════════════════════════════════════════════════════════
+
+const ETL = {
+
+  // Leer archivo y poblar AppData
+  importar(file, onSuccess, onError) {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data   = new Uint8Array(e.target.result);
+        const wb     = XLSX.read(data, { type: "array" });
+        const result = { clientes: 0, rutas: 0, vehiculo: false, errores: [] };
+
+        // ── Hoja CLIENTES ─────────────────────────────────────
+        if (wb.SheetNames.includes("CLIENTES")) {
+          const ws   = wb.Sheets["CLIENTES"];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+          const nuevos = [];
+
+          for (const [i, row] of rows.entries()) {
+            const nombre = String(row["Nombre cliente"] || row["nombre"] || "").trim();
+            if (!nombre || nombre.startsWith("Nombre") || nombre.startsWith("*")) continue;
+
+            const prio = String(row["Prioridad"] || row["prioridad"] || "media").toLowerCase().trim();
+            const prioParsed = ["alta","media","baja"].includes(prio) ? prio : "media";
+
+            const km = parseFloat(row["Km depósito"] || row["km"] || 10) || 10;
+            const demanda = parseInt(row["Demanda (cajas/día)"] || row["demanda"] || 20) || 20;
+            const tiempo  = parseInt(row["Descarga (min)"]      || row["tiempo"]   || 10) || 10;
+            const freq    = parseInt(row["Visitas/semana"]       || row["freq"]     || 3)  || 3;
+
+            nuevos.push({
+              nombre,
+              dir:      String(row["Dirección"] || row["dir"] || "Sin dirección").trim(),
+              demanda,
+              tiempo,
+              ventana:  String(row["Ventana de entrega"] || row["ventana"] || "08:00–12:00").trim(),
+              prioridad: prioParsed,
+              freq,
+              km,
+            });
+          }
+
+          if (nuevos.length) {
+            AppData.clientes = nuevos;
+            result.clientes  = nuevos.length;
+          } else {
+            result.errores.push("Hoja CLIENTES: no se encontraron filas válidas.");
+          }
+        }
+
+        // ── Hoja RUTAS_DIARIAS ────────────────────────────────
+        if (wb.SheetNames.includes("RUTAS_DIARIAS")) {
+          const ws   = wb.Sheets["RUTAS_DIARIAS"];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+          const nuevas = [];
+
+          for (const row of rows) {
+            const fecha = String(row["Fecha"] || row["fecha"] || "").trim();
+            if (!fecha || !/\d{4}/.test(fecha)) continue;
+
+            const km       = parseFloat(row["Km recorridos"]      || row["km"]       || 0);
+            const entregas = parseInt(row["Entregas"]             || row["entregas"] || 0);
+            if (!km || !entregas) continue;
+
+            nuevas.push({
+              fecha,
+              entregas,
+              km,
+              tiempo:   parseInt(row["Tiempo total (min)"] || row["tiempo"]   || 480) || 480,
+              gasolina: parseFloat(row["Gasolina (L)"]      || row["gasolina"] || 18)  || 18,
+              pgas:     parseFloat(row["Precio gas ($/L)"]  || row["pgas"]     || 24)  || 24,
+              cpm:      parseFloat(row["Costo/km ($)"]      || row["cpm"]      || 8.5) || 8.5,
+              cophora:  parseFloat(row["Costo op. ($/hr)"]  || row["cophora"]  || 80)  || 80,
+              fuera:    parseFloat(row["% fuera ventana"]   || row["fuera"]    || 0)   || 0,
+              notas:    String(row["Notas"] || row["notas"] || "").trim(),
+            });
+          }
+
+          if (nuevas.length) {
+            AppData.rutas   = nuevas;
+            result.rutas    = nuevas.length;
+          } else {
+            result.errores.push("Hoja RUTAS_DIARIAS: no se encontraron filas válidas.");
+          }
+        }
+
+        // ── Hoja VEHICULO ─────────────────────────────────────
+        if (wb.SheetNames.includes("VEHICULO")) {
+          const ws   = wb.Sheets["VEHICULO"];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+          // Buscar filas con pares [parámetro, valor]
+          const map = {};
+          for (const row of rows) {
+            const param = String(row[0] || "").toLowerCase();
+            const val   = parseFloat(row[1]);
+            if (!isNaN(val)) {
+              if (param.includes("capacidad"))    map.capacidad    = val;
+              if (param.includes("costo/km") || param.includes("costo por km")) map.costoPorKm = val;
+              if (param.includes("rendimiento"))  map.rendimiento  = val;
+              if (param.includes("gasolina"))     map.precioGas    = val;
+              if (param.includes("operador"))     map.costoOperador = val;
+              if (param.includes("jornada"))      map.jornadaMax   = val;
+            }
+          }
+
+          if (Object.keys(map).length) {
+            AppData.vehiculo = { ...AppData.vehiculo, ...map };
+            result.vehiculo  = true;
+          }
+        }
+
+        // ── Guardar y notificar ───────────────────────────────
+        AppData.guardar();
+        onSuccess(result);
+
+      } catch (err) {
+        onError("Error al leer el archivo: " + err.message);
+      }
+    };
+
+    reader.onerror = () => onError("No se pudo leer el archivo.");
+    reader.readAsArrayBuffer(file);
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// charts.js — Todas las gráficas de la aplicación (Chart.js)
+// ═══════════════════════════════════════════════════════════════════
+
+const Charts = {
+  _instances: {},
+
+  _destroy(id) {
+    if (this._instances[id]) {
+      this._instances[id].destroy();
+      delete this._instances[id];
+    }
+  },
+
+  costosDiarios() {
+    const canvas = document.getElementById("chart-costos");
+    if (!canvas) return;
+    this._destroy("costos");
+
+    const rutas  = AppData.rutas.slice(-20); // últimos 20 días
+    const labels = rutas.map(r => r.fecha.slice(5));   // MM-DD
+    const costos = rutas.map(r => AppData.calcCostoRuta(r));
+    const avg    = costos.length ? Math.round(costos.reduce((a,c)=>a+c,0)/costos.length) : 0;
+
+    this._instances["costos"] = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Costo diario ($)",
+            data: costos,
+            borderColor: "#2A78D6",
+            backgroundColor: "rgba(42,120,214,0.08)",
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: "#2A78D6",
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: "Promedio",
+            data: costos.map(() => avg),
+            borderColor: "#D97706",
+            borderDash: [5,4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` $${ctx.parsed.y.toLocaleString()}`,
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: { callback: v => "$" + v.toLocaleString(), font: { size: 10 } },
+            grid: { color: "#F1F5F9" },
+          },
+          x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        },
+      },
+    });
+  },
+
+  prioridades() {
+    const canvas = document.getElementById("chart-prio");
+    if (!canvas) return;
+    this._destroy("prio");
+
+    const pr = { alta: 0, media: 0, baja: 0 };
+    AppData.clientes.forEach(c => pr[c.prioridad]++);
+
+    this._instances["prio"] = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels: ["Alta", "Media", "Baja"],
+        datasets: [{
+          data: [pr.alta, pr.media, pr.baja],
+          backgroundColor: ["#2A78D6", "#D97706", "#0E8A6E"],
+          borderWidth: 0,
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12 } },
+        },
+      },
+    });
+  },
+
+  comparativaOpt() {
+    const canvas = document.getElementById("chart-opt");
+    if (!canvas || !AppData.ultimaOptimizacion) return;
+    this._destroy("opt");
+
+    const o = AppData.ultimaOptimizacion;
+    this._instances["opt"] = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: ["Km/ruta", "Costo diario ($)", "Ahorro mensual ($)"],
+        datasets: [
+          {
+            label: "Actual",
+            data: [Math.round(o.avgKmActual), Math.round(o.avgCostoActual), 0],
+            backgroundColor: "#E34948",
+            borderRadius: 5,
+          },
+          {
+            label: "Optimizado",
+            data: [o.avgKmOpt, o.costoOptDia, o.ahorroMes],
+            backgroundColor: "#0E8A6E",
+            borderRadius: 5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}` },
+          },
+        },
+        scales: {
+          y: { ticks: { callback: v => "$" + v.toLocaleString(), font: { size: 10 } }, grid: { color: "#F1F5F9" } },
+          x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        },
+      },
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// export.js — Generador de archivos Excel para Power BI
+// ═══════════════════════════════════════════════════════════════════
+
+const Exportar = {
+
+  _descargar(wb, nombre) {
+    XLSX.writeFile(wb, nombre);
+  },
+
+  clientes() {
+    if (!AppData.clientes.length) { UI.toast("Sin clientes para exportar.", "warn"); return; }
+    const data = AppData.clientes.map((c, i) => ({
+      "#": i + 1,
+      "Cliente": c.nombre,
+      "Dirección": c.dir,
+      "Demanda (cajas/día)": c.demanda,
+      "Descarga (min)": c.tiempo,
+      "Ventana": c.ventana,
+      "Prioridad": c.prioridad,
+      "Visitas/semana": c.freq,
+      "Km depósito": c.km,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [4,28,35,18,14,18,10,14,12].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    this._descargar(wb, "clientes.xlsx");
+    UI.toast("clientes.xlsx descargado ✓");
+  },
+
+  rutas() {
+    if (!AppData.rutas.length) { UI.toast("Sin rutas para exportar.", "warn"); return; }
+    const data = AppData.rutas.map(r => ({
+      "Fecha": r.fecha,
+      "Entregas": r.entregas,
+      "Km": r.km,
+      "Tiempo (min)": r.tiempo,
+      "Tiempo (h)": +(r.tiempo / 60).toFixed(2),
+      "Gasolina (L)": r.gasolina,
+      "Precio gas ($/L)": r.pgas,
+      "Costo/km ($)": r.cpm,
+      "Costo op. ($/hr)": r.cophora,
+      "Costo total ($)": AppData.calcCostoRuta(r),
+      "% fuera ventana": r.fuera,
+      "Notas": r.notas || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [12,10,8,12,10,12,16,12,16,14,16,28].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Historial rutas");
+    this._descargar(wb, "rutas_historico.xlsx");
+    UI.toast("rutas_historico.xlsx descargado ✓");
+  },
+
+  optimizacion() {
+    const o = AppData.ultimaOptimizacion;
+    if (!o) { UI.toast("Ejecuta la optimización primero.", "warn"); return; }
+
+    // Hoja 1 — Resumen ejecutivo
+    const resumen = [{
+      "Clientes totales":             AppData.clientes.length,
+      "Rutas generadas":              o.numVehiculos,
+      "Km promedio actual":           Math.round(o.avgKmActual),
+      "Km promedio optimizado":       o.avgKmOpt,
+      "Reducción km/ruta":            Math.round(o.avgKmActual - o.avgKmOpt),
+      "% reducción km":               o.savingPct,
+      "Costo diario actual ($)":      Math.round(o.avgCostoActual),
+      "Costo diario optimizado ($)":  o.costoOptDia,
+      "Ahorro diario ($)":            o.ahorroDia,
+      "Ahorro mensual ($)":           o.ahorroMes,
+      "CO₂ evitado (kg/día)":         o.co2,
+    }];
+
+    // Hoja 2 — Detalle de rutas óptimas
+    const detalle = o.rutas.flatMap((r, ri) =>
+      r.clientes.map((c, ci) => ({
+        "Ruta #":           ri + 1,
+        "Parada #":         ci + 1,
+        "Cliente":          c.nombre,
+        "Dirección":        c.dir,
+        "Demanda (cajas)":  c.demanda,
+        "Descarga (min)":   c.tiempo,
+        "Ventana":          c.ventana,
+        "Prioridad":        c.prioridad,
+        "Km al siguiente":  c.km,
+      }))
+    );
+
+    const wsRes = XLSX.utils.json_to_sheet(resumen);
+    const wsDet = XLSX.utils.json_to_sheet(detalle);
+    wsRes["!cols"] = [16,14,20,22,16,16,22,24,16,18,18].map(w => ({ wch: w }));
+    wsDet["!cols"] = [8,10,28,32,14,14,18,10,14].map(w => ({ wch: w }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsRes, "Resumen optimización");
+    XLSX.utils.book_append_sheet(wb, wsDet, "Detalle rutas óptimas");
+    this._descargar(wb, "optimizacion_vrp.xlsx");
+    UI.toast("optimizacion_vrp.xlsx descargado ✓");
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// app.js — Controlador principal
+// Maneja: navegación, renderizado de secciones y formularios
+// ═══════════════════════════════════════════════════════════════════
+
+// ── UI helpers globales ──────────────────────────────────────────
+const UI = {
+  toast(msg, type = "ok") {
+    const el = document.createElement("div");
+    el.className = `toast toast--${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("toast--show"));
+    setTimeout(() => {
+      el.classList.remove("toast--show");
+      setTimeout(() => el.remove(), 300);
+    }, 3000);
+  },
+
+  val(id) { return document.getElementById(id)?.value?.trim() ?? ""; },
+  num(id, def = 0) { return parseFloat(document.getElementById(id)?.value) || def; },
+  int(id, def = 0) { return parseInt(document.getElementById(id)?.value) || def; },
+  clear(...ids) { ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; }); },
+
+  badge(p) {
+    const map = { alta: "badge--alta", media: "badge--media", baja: "badge--baja" };
+    return `<span class="badge ${map[p] || ''}">${p}</span>`;
+  },
+
+  fueraColor(v) {
+    if (v > 15) return "#E34948";
+    if (v > 5)  return "#D97706";
+    return "#0E8A6E";
+  },
+};
+
+// ── Navegación ───────────────────────────────────────────────────
+function navegar(tab) {
+  document.querySelectorAll(".nav__btn").forEach(b => b.classList.remove("nav__btn--active"));
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("section--active"));
+  document.querySelector(`[data-tab="${tab}"]`)?.classList.add("nav__btn--active");
+  document.getElementById(`sec-${tab}`)?.classList.add("section--active");
+
+  if (tab === "dashboard") renderDashboard();
+  if (tab === "clientes")  renderTablaClientes();
+  if (tab === "rutas")     renderTablaRutas();
+  if (tab === "exportar")  renderExportar();
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────────
+function renderDashboard() {
+  const avg = AppData.promedioRutas();
+
+  // KPIs
+  const kpis = [
+    {
+      label: "Costo promedio/día",
+      value: avg ? `$${avg.costo.toLocaleString()}` : "—",
+      delta: "Objetivo: reducir 11%",
+      deltaClass: "neg",
+      icon: "💰",
+    },
+    {
+      label: "Km promedio/ruta",
+      value: avg ? avg.km : "—",
+      delta: "km diarios",
+      deltaClass: "",
+      icon: "📏",
+    },
+    {
+      label: "Entregas promedio",
+      value: avg ? avg.entregas : "—",
+      delta: "clientes/día",
+      deltaClass: "",
+      icon: "📦",
+    },
+    {
+      label: "% fuera de ventana",
+      value: avg ? `${avg.fuera}%` : "—",
+      delta: "Meta: < 5%",
+      deltaClass: avg && avg.fuera > 5 ? "neg" : "pos",
+      icon: "⏱",
+    },
+    {
+      label: "Ahorro potencial/mes",
+      value: avg ? `$${Math.round(avg.costo * 22 * 0.11).toLocaleString()}` : "—",
+      delta: "con optimización VRP",
+      deltaClass: "pos",
+      icon: "💡",
+    },
+    {
+      label: "Datos registrados",
+      value: AppData.rutas.length,
+      delta: `de ${AppData.clientes.length} clientes`,
+      deltaClass: "",
+      icon: "📋",
+    },
+  ];
+
+  document.getElementById("kpi-grid").innerHTML = kpis.map(k => `
+    <div class="kpi">
+      <div class="kpi__icon">${k.icon}</div>
+      <div class="kpi__label">${k.label}</div>
+      <div class="kpi__value">${k.value}</div>
+      <div class="kpi__delta ${k.deltaClass}">${k.delta}</div>
+    </div>
+  `).join("");
+
+  Charts.costosDiarios();
+  Charts.prioridades();
+}
+
+// ── CLIENTES ─────────────────────────────────────────────────────
+function renderTablaClientes() {
+  const tbody = document.getElementById("tbody-clientes");
+  const empty = document.getElementById("empty-clientes");
+  document.getElementById("cnt-clientes").textContent = AppData.clientes.length;
+
+  if (!AppData.clientes.length) {
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = AppData.clientes.map((c, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td class="fw-medium">${c.nombre}</td>
+      <td class="text-muted small">${c.dir}</td>
+      <td>${c.demanda} cajas</td>
+      <td>${c.tiempo} min</td>
+      <td>${c.ventana}</td>
+      <td>${UI.badge(c.prioridad)}</td>
+      <td>${c.freq}x</td>
+      <td>${c.km} km</td>
+      <td>
+        <button class="btn btn--icon btn--danger" onclick="eliminarCliente(${i})" title="Eliminar">✕</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function agregarCliente() {
+  const nombre = UI.val("c-nombre");
+  if (!nombre) { UI.toast("Ingresa el nombre del cliente.", "warn"); return; }
+
+  const prio = document.getElementById("c-prioridad").value;
+  AppData.clientes.push({
+    nombre,
+    dir:      UI.val("c-dir") || "Sin dirección",
+    demanda:  UI.int("c-demanda", 20),
+    tiempo:   UI.int("c-tiempo", 10),
+    ventana:  UI.val("c-ventana") || "08:00–12:00",
+    prioridad: prio,
+    freq:     UI.int("c-freq", 3),
+    km:       UI.num("c-km", 10),
+  });
+
+  UI.clear("c-nombre","c-dir","c-demanda","c-tiempo","c-ventana","c-freq","c-km");
+  document.getElementById("c-prioridad").value = "media";
+  AppData.guardar();
+  renderTablaClientes();
+  UI.toast(`Cliente "${nombre}" agregado ✓`);
+}
+
+function eliminarCliente(i) {
+  const nombre = AppData.clientes[i]?.nombre;
+  if (!confirm(`¿Eliminar a "${nombre}"?`)) return;
+  AppData.clientes.splice(i, 1);
+  AppData.guardar();
+  renderTablaClientes();
+  UI.toast(`"${nombre}" eliminado.`, "warn");
+}
+
+// ── RUTAS ─────────────────────────────────────────────────────────
+function renderTablaRutas() {
+  const tbody = document.getElementById("tbody-rutas");
+  const empty = document.getElementById("empty-rutas");
+  document.getElementById("cnt-rutas").textContent = AppData.rutas.length;
+
+  if (!AppData.rutas.length) {
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = AppData.rutas.map((r, i) => `
+    <tr>
+      <td>${r.fecha}</td>
+      <td>${r.entregas}</td>
+      <td>${r.km} km</td>
+      <td>${(r.tiempo/60).toFixed(1)} h</td>
+      <td>${r.gasolina} L</td>
+      <td>$${r.pgas}</td>
+      <td class="fw-medium">$${AppData.calcCostoRuta(r).toLocaleString()}</td>
+      <td style="color:${UI.fueraColor(r.fuera)};font-weight:600">${r.fuera}%</td>
+      <td class="text-muted small">${r.notas || "—"}</td>
+      <td>
+        <button class="btn btn--icon btn--danger" onclick="eliminarRuta(${i})" title="Eliminar">✕</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function agregarRuta() {
+  const fecha = UI.val("r-fecha");
+  if (!fecha) { UI.toast("Selecciona la fecha.", "warn"); return; }
+
+  AppData.rutas.push({
+    fecha,
+    entregas: UI.int("r-entregas"),
+    km:       UI.num("r-km"),
+    tiempo:   UI.int("r-tiempo"),
+    gasolina: UI.num("r-gasolina"),
+    pgas:     UI.num("r-pgas", 24),
+    cpm:      UI.num("r-cpm", 8.5),
+    cophora:  UI.num("r-cophora", 80),
+    fuera:    UI.num("r-fuera"),
+    notas:    UI.val("r-notas"),
+  });
+
+  UI.clear("r-fecha","r-entregas","r-km","r-tiempo","r-gasolina","r-fuera","r-notas");
+  AppData.guardar();
+  renderTablaRutas();
+  UI.toast(`Ruta del ${fecha} registrada ✓`);
+}
+
+function eliminarRuta(i) {
+  if (!confirm("¿Eliminar este registro?")) return;
+  AppData.rutas.splice(i, 1);
+  AppData.guardar();
+  renderTablaRutas();
+}
+
+// ── OPTIMIZAR ────────────────────────────────────────────────────
+function ejecutarOptimizacion() {
+  if (!AppData.clientes.length) {
+    UI.toast("Agrega clientes antes de optimizar.", "warn");
+    return;
+  }
+
+  // Leer parámetros del vehículo desde el formulario
+  AppData.vehiculo = {
+    capacidad:      UI.int("v-cap", 300),
+    costoPorKm:     UI.num("v-cpm", 8.5),
+    rendimiento:    UI.num("v-rend", 7),
+    precioGas:      UI.num("v-gas", 24),
+    costoOperador:  UI.num("v-hora", 80),
+    jornadaMax:     UI.num("v-jornada", 8),
+  };
+
+  try {
+    const resultado = VRP.optimizar(AppData.clientes, AppData.vehiculo);
+    AppData.ultimaOptimizacion = resultado;
+    AppData.guardar();
+    renderResultadoOpt(resultado);
+    UI.toast("Optimización completada ✓");
+  } catch (e) {
+    UI.toast(e.message, "error");
+  }
+}
+
+function renderResultadoOpt(o) {
+  const el = document.getElementById("resultado-opt");
+  el.style.display = "block";
+
+  const rutasHTML = o.rutas.map((r, ri) => `
+    <div class="opt-ruta">
+      <div class="opt-ruta__header">
+        Ruta ${ri + 1}
+        <span class="opt-ruta__meta">${Math.round(r.km)} km · ${r.horas} h · ${r.carga} cajas · $${r.costo.toLocaleString()}</span>
+      </div>
+      ${r.clientes.map((c, ci) => `
+        <div class="opt-step">
+          <div class="opt-step__num">${ci + 1}</div>
+          <div class="opt-step__info">
+            <div class="opt-step__name">${c.nombre}</div>
+            <div class="opt-step__meta">${c.ventana} · ${c.demanda} cajas · ${c.tiempo} min descarga</div>
+          </div>
+          <div class="opt-step__km">${c.km} km</div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+    <div class="card mt-1">
+      <div class="card__title">Resultado de optimización</div>
+      <div class="kpi-grid kpi-grid--sm">
+        <div class="kpi"><div class="kpi__label">Rutas generadas</div><div class="kpi__value">${o.numVehiculos}</div></div>
+        <div class="kpi"><div class="kpi__label">Km/ruta optimizado</div><div class="kpi__value">${o.avgKmOpt}</div></div>
+        <div class="kpi"><div class="kpi__label">Reducción km</div><div class="kpi__value" style="color:var(--c-green)">${o.savingPct}%</div></div>
+        <div class="kpi"><div class="kpi__label">Ahorro/mes</div><div class="kpi__value" style="color:var(--c-green)">$${o.ahorroMes.toLocaleString()}</div></div>
+      </div>
+      <div class="opt-rutas">${rutasHTML}</div>
+      <div class="savings-box">
+        <div class="savings-box__title">Impacto estimado mensual</div>
+        <div class="savings-row"><span>Combustible</span><span>$${Math.round(o.ahorroMes*.45).toLocaleString()}</span></div>
+        <div class="savings-row"><span>Tiempo operador</span><span>$${Math.round(o.ahorroMes*.35).toLocaleString()}</span></div>
+        <div class="savings-row"><span>Mantenimiento</span><span>$${Math.round(o.ahorroMes*.20).toLocaleString()}</span></div>
+        <div class="savings-row savings-row--total"><span>Total ahorro/mes</span><span>$${o.ahorroMes.toLocaleString()}</span></div>
+        <div class="savings-row"><span>CO₂ evitado/día</span><span>${o.co2} kg</span></div>
+      </div>
+      <div class="chart-wrap" style="height:220px;margin-top:1rem">
+        <canvas id="chart-opt"></canvas>
+      </div>
+    </div>
+  `;
+
+  Charts.comparativaOpt();
+}
+
+// ── IMPORTAR ETL ─────────────────────────────────────────────────
+function abrirImportador() {
+  document.getElementById("etl-input").click();
+}
+
+function onETLSeleccionado(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const nombre = file.name;
+  document.getElementById("etl-nombre").textContent = nombre;
+  document.getElementById("etl-status").textContent = "Procesando…";
+  document.getElementById("etl-status").className = "etl-status";
+
+  ETL.importar(
+    file,
+    (result) => {
+      let msg = `✓ Importado: ${result.clientes} clientes, ${result.rutas} rutas`;
+      if (result.vehiculo) msg += ", parámetros del vehículo";
+      if (result.errores.length) msg += ` · ⚠ ${result.errores.join("; ")}`;
+      document.getElementById("etl-status").textContent = msg;
+      document.getElementById("etl-status").className = "etl-status etl-status--ok";
+      UI.toast(`ETL cargado: ${result.clientes} clientes, ${result.rutas} rutas ✓`);
+      renderTablaClientes();
+      renderTablaRutas();
+    },
+    (err) => {
+      document.getElementById("etl-status").textContent = "✗ " + err;
+      document.getElementById("etl-status").className = "etl-status etl-status--error";
+      UI.toast(err, "error");
+    }
+  );
+  e.target.value = "";
+}
+
+// ── EXPORTAR ─────────────────────────────────────────────────────
+function renderExportar() {
+  document.getElementById("cnt-exp-c").textContent = `${AppData.clientes.length} clientes`;
+  document.getElementById("cnt-exp-r").textContent = `${AppData.rutas.length} registros`;
+  document.getElementById("cnt-exp-o").textContent = AppData.ultimaOptimizacion
+    ? "Listo para exportar" : "Ejecuta la optimización primero";
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  AppData.cargar();
+  navegar("dashboard");
+
+  // Poblar formulario del vehículo con valores actuales
+  const v = AppData.vehiculo;
+  document.getElementById("v-cap").value    = v.capacidad;
+  document.getElementById("v-cpm").value    = v.costoPorKm;
+  document.getElementById("v-rend").value   = v.rendimiento;
+  document.getElementById("v-gas").value    = v.precioGas;
+  document.getElementById("v-hora").value   = v.costoOperador;
+  document.getElementById("v-jornada").value = v.jornadaMax;
+});
+
+
+function onETLDrop(e) {
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  document.getElementById('etl-nombre').textContent = file.name;
+  document.getElementById('etl-status').textContent = 'Procesando…';
+  document.getElementById('etl-status').className = 'etl-status';
+  ETL.importar(
+    file,
+    (result) => {
+      let msg = '✓ Importado: ' + result.clientes + ' clientes, ' + result.rutas + ' rutas';
+      if (result.vehiculo) msg += ', parámetros del vehículo';
+      if (result.errores && result.errores.length) msg += ' · ⚠ ' + result.errores.join('; ');
+      document.getElementById('etl-status').textContent = msg;
+      document.getElementById('etl-status').className = 'etl-status etl-status--ok';
+      UI.toast('ETL cargado: ' + result.clientes + ' clientes, ' + result.rutas + ' rutas ✓');
+      renderTablaClientes();
+      renderTablaRutas();
+    },
+    (err) => {
+      document.getElementById('etl-status').textContent = '✗ ' + err;
+      document.getElementById('etl-status').className = 'etl-status etl-status--error';
+      UI.toast(err, 'error');
+    }
+  );
+}
+
+</script>
+</body>
+</html>
