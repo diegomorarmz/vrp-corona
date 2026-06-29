@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VRP Corona · Optimización de rutas · Veracruz</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/tabler-icons.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --c-navy:    #0F2744;
+  --c-blue:    #1A5FA8;
+  --c-sky:     #2A78D6;
+  --c-ice:     #E6F1FB;
+  --c-teal:    #0E8A6E;
+  --c-mint:    #E2F4EF;
+  --c-amber:   #D97706;
+  --c-cream:   #FEF3C7;
+  --c-red:     #E34948;
+  --c-red-bg:  #FEF2F2;
+  --c-slate:   #475569;
+  --c-muted:   #94A3B8;
+  --c-border:  #CBD5E1;
+  --c-surface: #F8FAFC;
+  --c-white:   #FFFFFF;
+  --c-green:   #0E8A6E;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --shadow:    0 1px 4px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+  --nav-w: 220px;
+  --header-h: 56px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body { font-family: var(--font-sans); background: var(--c-surface); color: var(--c-navy); min-height: 100vh; display: flex; flex-direction: column; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar { width: var(--nav-w); background: var(--c-navy); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: transform .25s; }
+.sidebar__brand { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.sidebar__logo { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--c-sky); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 4px; }
+.sidebar__name { font-size: 14px; font-weight: 700; color: var(--c-white); line-height: 1.25; }
+.sidebar__sub { font-size: 10px; color: rgba(255,255,255,.4); margin-top: 2px; }
+.nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.nav__btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: none; border-radius: var(--radius); background: transparent; color: rgba(255,255,255,.55); font-family: var(--font-sans); font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; transition: background .12s, color .12s; }
+.nav__btn:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+.nav__btn--active { background: var(--c-sky); color: var(--c-white); }
+.nav__btn--active:hover { background: #1A65BA; }
+.nav__icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+.nav__section { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.25); padding: 10px 12px 4px; }
+.sidebar__footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 10px; color: rgba(255,255,255,.25); line-height: 1.5; font-family: var(--font-mono); }
+
+/* Main */
+.main { margin-left: var(--nav-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar { height: var(--header-h); background: var(--c-white); border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 50; }
+.topbar__title { font-size: 15px; font-weight: 700; color: var(--c-navy); }
+.topbar__sub { font-size: 11px; color: var(--c-muted); margin-top: 1px; }
+.topbar__actions { display: flex; gap: 8px; align-items: center; }
+.content { padding: 24px 28px; flex: 1; }
+
+/* Sections */
+.section { display: none; }
+.section--active { display: block; }
+/* El mapa necesita display:block siempre para que Leaflet calcule dimensiones */
+#sec-mapa { display: block; visibility: hidden; position: absolute; pointer-events: none; width: calc(100% - var(--nav-w) - 56px); }
+#sec-mapa.section--active { visibility: visible; position: relative; pointer-events: all; }
+
+/* Cards */
+.card { background: var(--c-white); border: 1px solid var(--c-border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+.card--last { margin-bottom: 0; }
+.card__title { font-size: 14px; font-weight: 700; color: var(--c-navy); margin-bottom: 4px; }
+.card__sub { font-size: 12px; color: var(--c-muted); margin-bottom: 14px; }
+.mt-1 { margin-top: 16px; }
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi-grid--sm { grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); }
+.kpi { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 14px; }
+.kpi__icon { font-size: 18px; margin-bottom: 6px; }
+.kpi__label { font-size: 11px; color: var(--c-muted); margin-bottom: 4px; }
+.kpi__value { font-size: 22px; font-weight: 700; color: var(--c-navy); line-height: 1; }
+.kpi__delta { font-size: 11px; margin-top: 4px; color: var(--c-muted); }
+.kpi__delta.pos { color: var(--c-teal); }
+.kpi__delta.neg { color: var(--c-red); }
+
+/* Charts */
+.chart-wrap { width: 100%; position: relative; }
+.chart-row { display: grid; grid-template-columns: 1fr 260px; gap: 16px; margin-bottom: 0; }
+@media (max-width: 700px) { .chart-row { grid-template-columns: 1fr; } }
+
+/* Forms */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+@media (max-width: 580px) { .form-grid { grid-template-columns: 1fr; } }
+.form-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--c-slate); }
+.field input, .field select { padding: 8px 10px; border: 1px solid var(--c-border); border-radius: var(--radius); font-family: var(--font-sans); font-size: 13px; color: var(--c-navy); background: var(--c-white); transition: border-color .12s; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--c-sky); box-shadow: 0 0 0 3px rgba(42,120,214,.1); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid var(--c-border); border-radius: var(--radius); font-family: var(--font-sans); font-size: 13px; font-weight: 500; cursor: pointer; background: var(--c-white); color: var(--c-navy); transition: all .12s; white-space: nowrap; }
+.btn:hover { background: var(--c-surface); }
+.btn--primary { background: var(--c-sky); color: #fff; border-color: var(--c-sky); }
+.btn--primary:hover { background: #185FA5; border-color: #185FA5; }
+.btn--teal { background: var(--c-teal); color: #fff; border-color: var(--c-teal); }
+.btn--teal:hover { background: #0A6651; border-color: #0A6651; }
+.btn--amber { background: var(--c-amber); color: #fff; border-color: var(--c-amber); }
+.btn--amber:hover { background: #B45309; border-color: #B45309; }
+.btn--danger { color: var(--c-red); border-color: currentColor; }
+.btn--danger:hover { background: var(--c-red-bg); }
+.btn--icon { padding: 4px 8px; font-size: 11px; }
+.btn-row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--c-border); color: var(--c-slate); font-weight: 600; white-space: nowrap; position: sticky; top: 0; background: var(--c-white); }
+tbody td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; color: var(--c-navy); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--c-surface); }
+.fw-medium { font-weight: 600; }
+.text-muted { color: var(--c-slate); }
+.small { font-size: 11px; }
+
+/* Badge */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+.badge--alta  { background: var(--c-ice); color: var(--c-blue); }
+.badge--media { background: var(--c-cream); color: #92400E; }
+.badge--baja  { background: var(--c-mint); color: #065F46; }
+
+/* Empty */
+.empty { text-align: center; padding: 2rem; color: var(--c-muted); font-size: 13px; }
+
+/* Section header */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.section-header .card__title { margin-bottom: 0; }
+
+/* Optimización */
+.opt-rutas { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.opt-ruta { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); overflow: hidden; }
+.opt-ruta__header { background: var(--c-navy); color: var(--c-white); padding: 8px 14px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+.opt-ruta__meta { font-family: var(--font-mono); font-size: 10px; font-weight: 400; color: rgba(255,255,255,.6); }
+.opt-step { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--c-border); }
+.opt-step:last-child { border-bottom: none; }
+.opt-step__num { width: 24px; height: 24px; border-radius: 50%; background: var(--c-ice); color: var(--c-blue); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.opt-step__info { flex: 1; }
+.opt-step__name { font-size: 12px; font-weight: 600; }
+.opt-step__meta { font-size: 11px; color: var(--c-muted); }
+.opt-step__km { font-size: 11px; color: var(--c-slate); white-space: nowrap; }
+
+/* Savings box */
+.savings-box { background: var(--c-ice); border: 1px solid rgba(42,120,214,.2); border-radius: var(--radius); padding: 14px; margin-top: 14px; }
+.savings-box__title { font-size: 12px; font-weight: 700; color: var(--c-blue); margin-bottom: 8px; }
+.savings-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--c-blue); padding: 3px 0; }
+.savings-row--total { font-weight: 700; border-top: 1px solid rgba(42,120,214,.2); margin-top: 4px; padding-top: 6px; }
+
+/* ETL */
+.etl-drop { border: 2px dashed var(--c-border); border-radius: var(--radius-lg); padding: 32px 20px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.etl-drop:hover, .etl-drop--over { border-color: var(--c-sky); background: var(--c-ice); }
+.etl-drop__icon { font-size: 36px; margin-bottom: 10px; }
+.etl-drop__text { font-size: 14px; font-weight: 600; color: var(--c-navy); }
+.etl-drop__sub { font-size: 12px; color: var(--c-muted); margin-top: 4px; }
+.etl-nombre { font-family: var(--font-mono); font-size: 11px; color: var(--c-slate); margin-top: 10px; min-height: 16px; }
+.etl-status { font-size: 12px; color: var(--c-muted); margin-top: 6px; min-height: 16px; padding: 6px 10px; border-radius: var(--radius); }
+.etl-status--ok    { background: var(--c-mint); color: var(--c-teal); font-weight: 500; }
+.etl-status--error { background: var(--c-red-bg); color: var(--c-red); font-weight: 500; }
+
+/* Export */
+.export-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 14px; }
+.export-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 16px; }
+.export-card__icon { font-size: 24px; margin-bottom: 8px; }
+.export-card__title { font-size: 13px; font-weight: 700; color: var(--c-navy); margin-bottom: 4px; }
+.export-card__desc { font-size: 11px; color: var(--c-muted); margin-bottom: 12px; line-height: 1.5; }
+.export-card__count { font-family: var(--font-mono); font-size: 10px; color: var(--c-slate); margin-bottom: 10px; }
+
+/* Power BI tips */
+.pbi-tip { background: var(--c-cream); border: 1px solid #FCD34D; border-radius: var(--radius); padding: 14px 16px; font-size: 12px; color: #92400E; line-height: 1.7; }
+.pbi-tip strong { color: #78350F; }
+.pbi-tip code { font-family: var(--font-mono); background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--c-navy); color: var(--c-white); padding: 10px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md); z-index: 9999; transform: translateY(20px); opacity: 0; transition: all .25s; max-width: 360px; }
+.toast--show { transform: translateY(0); opacity: 1; }
+.toast--warn  { background: var(--c-amber); }
+.toast--error { background: var(--c-red); }
+
+.divider { height: 1px; background: var(--c-border); margin: 16px 0; }
+
+/* ── Modal de limpieza ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,39,68,.55);
+  backdrop-filter: blur(3px);
+  z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay--open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--c-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%; max-width: 420px;
+  padding: 24px;
+  transform: translateY(12px);
+  transition: transform .2s;
+}
+.modal-overlay--open .modal { transform: translateY(0); }
+.modal__title {
+  font-size: 15px; font-weight: 700; color: var(--c-navy);
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.modal__sub { font-size: 12px; color: var(--c-muted); margin-bottom: 18px; }
+.modal__options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.modal__opt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  user-select: none;
+}
+.modal__opt:hover { background: var(--c-surface); }
+.modal__opt--checked { border-color: var(--c-red); background: var(--c-red-bg); }
+.modal__opt input[type=checkbox] { accent-color: var(--c-red); width: 16px; height: 16px; cursor: pointer; }
+.modal__opt-icon { font-size: 20px; }
+.modal__opt-body { flex: 1; }
+.modal__opt-label { font-size: 13px; font-weight: 600; color: var(--c-navy); }
+.modal__opt-count { font-size: 11px; color: var(--c-muted); font-family: var(--font-mono); }
+.modal__footer { display: flex; gap: 8px; justify-content: flex-end; }
+.modal__warning {
+  background: var(--c-red-bg);
+  border: 1px solid rgba(227,73,72,.2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #B91C1C;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* Mobile */
+.menu-toggle { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--c-navy); }
+@media (max-width: 768px) {
+  .menu-toggle { display: block; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar--open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .content { padding: 16px; }
+  .topbar { padding: 0 16px; }
+  .form-grid--3 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─────────────────────────────────────────────
+   NUEVAS SECCIONES — 4 mejoras
+───────────────────────────────────────────── */
+
+/* ── Mapa Leaflet ─────────────────────────── */
+#mapa-leaflet {
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  margin-top: 12px;
+  z-index: 1;
+}
+.leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: 10 !important; }
+.leaflet-control { z-index: 11 !important; }
+.deposito-pin {
+  background: #0F2744;
+  color: #fff;
+  font-weight: 700;
+  font-size: 8px;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  letter-spacing: .04em;
+}
+.mapa-info-panel {
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 12px;
+  margin-top: 10px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mapa-info-item { display: flex; align-items: center; gap: 6px; }
+.mapa-info-dot  { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.mapa-info-line { width: 24px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+.coord-tip { font-size: 10px; color: var(--c-muted); margin-top: 6px; font-family: var(--font-mono); }
+
+.mapa-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--c-slate);
+  align-items: center;
+}
+.mapa-legend__dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 4px;
+}
+.mapa-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+.mapa-toggle .btn { font-size: 11px; padding: 5px 12px; }
+.mapa-toggle .btn--active-toggle { background: var(--c-navy); color: #fff; border-color: var(--c-navy); }
+
+/* ── Tabla comparativa ────────────────────── */
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cmp-table th { padding: 10px 14px; font-weight: 700; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--c-slate); border-bottom: 2px solid var(--c-border); text-align: left; }
+.cmp-table td { padding: 12px 14px; border-bottom: 1px solid #F1F5F9; }
+.cmp-table tr:last-child td { border-bottom: none; }
+.cmp-table__metric { font-weight: 600; color: var(--c-navy); }
+.cmp-table__antes { color: var(--c-red); font-weight: 600; font-family: var(--font-mono); }
+.cmp-table__despues { color: var(--c-teal); font-weight: 700; font-family: var(--font-mono); }
+.cmp-table__delta { font-size: 12px; font-weight: 700; }
+.cmp-table__delta--pos { color: var(--c-teal); }
+.cmp-table__delta--neg { color: var(--c-red); }
+.cmp-header-antes { background: #FEF2F2; color: var(--c-red); }
+.cmp-header-despues { background: var(--c-mint); color: var(--c-teal); }
+.cmp-row--highlight td { background: #F0FDF9; }
+
+/* ── Ejemplo tangible ─────────────────────── */
+.ejemplo-box {
+  border: 1px solid rgba(42,120,214,.2);
+  border-left: 4px solid var(--c-sky);
+  border-radius: var(--radius);
+  background: var(--c-ice);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.ejemplo-box__label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--c-sky);
+  margin-bottom: 6px;
+}
+.ejemplo-box__headline {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-navy);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.ejemplo-box__desc {
+  font-size: 12px;
+  color: var(--c-slate);
+  line-height: 1.7;
+}
+.ejemplo-box__num {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--c-sky);
+}
+.ejemplo-cards {
+  display: grid;
+  grid-template-columns: 1fr 40px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+.ejemplo-side {
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.ejemplo-side--antes { border-top: 3px solid var(--c-red); }
+.ejemplo-side--despues { border-top: 3px solid var(--c-teal); }
+.ejemplo-side__tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
+.ejemplo-side__tag--antes { color: var(--c-red); }
+.ejemplo-side__tag--despues { color: var(--c-teal); }
+.ejemplo-side__row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px solid #F1F5F9; }
+.ejemplo-side__row:last-child { border-bottom: none; }
+.ejemplo-side__val { font-weight: 700; font-family: var(--font-mono); }
+.ejemplo-arrow { text-align: center; font-size: 22px; color: var(--c-muted); }
+
+/* ── Algoritmo doc ────────────────────────── */
+.algo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.algo-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.algo-step__num {
+  width: 32px; height: 32px;
+  background: var(--c-navy);
+  color: var(--c-white);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.algo-step__body { flex: 1; padding-top: 4px; }
+.algo-step__title { font-size: 13px; font-weight: 700; color: var(--c-navy); margin-bottom: 4px; }
+.algo-step__desc { font-size: 12px; color: var(--c-slate); line-height: 1.6; }
+.algo-code {
+  background: var(--c-navy);
+  color: #7DD3FC;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-top: 10px;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+.algo-code .kw { color: #F472B6; }
+.algo-code .fn { color: #86EFAC; }
+.algo-code .cm { color: #6B7280; font-style: italic; }
+
+.algo-complexity {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.algo-pill {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 11px;
+  color: var(--c-slate);
+}
+.algo-pill strong { color: var(--c-navy); }
+
+.algo-limits {
+  background: var(--c-cream);
+  border: 1px solid #FCD34D;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #92400E;
+  margin-top: 14px;
+  line-height: 1.6;
+}
+.algo-limits strong { color: #78350F; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__brand">
+      <div class="sidebar__logo">VRP · Corona</div>
+      <div class="sidebar__name">Rutas de distribución</div>
+      <div class="sidebar__sub">Cervecería Corona · Veracruz</div>
+    </div>
+
+    <nav class="nav" role="navigation">
+      <div class="nav__section">Análisis</div>
+      <button class="nav__btn" data-tab="dashboard" onclick="navegar('dashboard')">
+        <span class="nav__icon"><i class="ti ti-layout-dashboard"></i></span> Dashboard
+      </button>
+
+      <div class="nav__section">Datos</div>
+      <button class="nav__btn" data-tab="clientes" onclick="navegar('clientes')">
+        <span class="nav__icon"><i class="ti ti-users"></i></span> Clientes
+      </button>
+      <button class="nav__btn" data-tab="rutas" onclick="navegar('rutas')">
+        <span class="nav__icon"><i class="ti ti-route"></i></span> Rutas diarias
+      </button>
+
+      <div class="nav__section">Motor VRP</div>
+      <button class="nav__btn" data-tab="optimizar" onclick="navegar('optimizar')">
+        <span class="nav__icon"><i class="ti ti-bolt"></i></span> Optimizar
+      </button>
+      <button class="nav__btn" data-tab="comparar" onclick="navegar('comparar')">
+        <span class="nav__icon"><i class="ti ti-table-column"></i></span> Antes vs Después
+      </button>
+      <button class="nav__btn" data-tab="mapa" onclick="navegar('mapa')">
+        <span class="nav__icon"><i class="ti ti-map-2"></i></span> Mapa de rutas
+      </button>
+
+      <div class="nav__section">Herramientas</div>
+      <button class="nav__btn" data-tab="algoritmo" onclick="navegar('algoritmo')">
+        <span class="nav__icon"><i class="ti ti-cpu"></i></span> Algoritmo NN
+      </button>
+      <button class="nav__btn" data-tab="importar" onclick="navegar('importar')">
+        <span class="nav__icon"><i class="ti ti-file-import"></i></span> Importar ETL
+      </button>
+      <button class="nav__btn" data-tab="exportar" onclick="navegar('exportar')">
+        <span class="nav__icon"><i class="ti ti-download"></i></span> Exportar Power BI
+      </button>
+    </nav>
+
+    <div class="sidebar__footer">
+      IIS · 5to cuatrimestre<br>
+      Prácticas profesionales 2025<br>
+      Motor: Nearest Neighbor VRP
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <button class="menu-toggle" onclick="toggleMenu()" aria-label="Menú">☰</button>
+        <div class="topbar__title" id="topbar-title">Dashboard</div>
+        <div class="topbar__sub">Optimización de rutas · Cervecería Corona</div>
+      </div>
+      <div class="topbar__actions">
+        <button class="btn btn--danger" onclick="abrirModalLimpiar()" title="Borrar datos cargados">
+          <i class="ti ti-trash"></i> Limpiar datos
+        </button>
+        <button class="btn btn--amber" onclick="navegar('importar')">
+          <i class="ti ti-file-import"></i> Cargar ETL
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- DASHBOARD -->
+      <div id="sec-dashboard" class="section">
+        <div class="kpi-grid" id="kpi-grid"></div>
+        <div class="chart-row">
+          <div class="card card--last">
+            <div class="card__title">Costo diario de operación</div>
+            <div class="chart-wrap" style="height:200px">
+              <canvas id="chart-costos"></canvas>
+            </div>
+          </div>
+          <div class="card card--last">
+            <div class="card__title">Clientes por prioridad</div>
+            <div class="chart-wrap" style="height:200px">
+              <canvas id="chart-prio"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div id="sec-clientes" class="section">
+        <div class="card">
+          <div class="card__title">Agregar cliente</div>
+          <div class="form-grid">
+            <div class="field"><label>Nombre del cliente</label><input id="c-nombre" placeholder="Ej. Oxxo Boca del Río"></div>
+            <div class="field"><label>Dirección</label><input id="c-dir" placeholder="Calle, número, colonia"></div>
+            <div class="field"><label>Demanda (cajas/día)</label><input id="c-demanda" type="number" min="1" placeholder="Ej. 48"></div>
+            <div class="field"><label>Tiempo de descarga (min)</label><input id="c-tiempo" type="number" min="1" placeholder="Ej. 12"></div>
+            <div class="field"><label>Ventana de entrega</label><input id="c-ventana" placeholder="Ej. 07:00–10:00"></div>
+            <div class="field"><label>Prioridad</label><select id="c-prioridad"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></div>
+            <div class="field"><label>Visitas por semana</label><input id="c-freq" type="number" min="1" max="7" placeholder="Ej. 3"></div>
+            <div class="field"><label>Km desde depósito</label><input id="c-km" type="number" min="0.1" step="0.1" placeholder="Ej. 14"></div>
+            <div class="field"><label>Latitud <span style="color:var(--c-sky);font-weight:400">(Google Maps → clic derecho)</span></label><input id="c-lat" type="number" step="0.000001" placeholder="Ej. 19.1738"></div>
+            <div class="field"><label>Longitud</label><input id="c-lng" type="number" step="0.000001" placeholder="Ej. -96.1342"></div>
+          </div>
+          <div class="coord-tip">💡 Para obtener coordenadas: abre Google Maps → clic derecho sobre el lugar → el primer dato que aparece es lat, lng.</div>
+          <div class="btn-row">
+            <button class="btn btn--primary" onclick="agregarCliente()"><i class="ti ti-plus"></i> Agregar cliente</button>
+          </div>
+        </div>
+        <div class="card card--last">
+          <div class="section-header">
+            <div class="card__title">Clientes registrados (<span id="cnt-clientes">0</span>)</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Cliente</th><th>Dirección</th><th>Demanda</th><th>Descarga</th><th>Ventana</th><th>Prioridad</th><th>Frec.</th><th>Km</th><th>Coords</th><th></th></tr></thead>
+              <tbody id="tbody-clientes"></tbody>
+            </table>
+          </div>
+          <div id="empty-clientes" class="empty" style="display:none">Sin clientes. Agrega el primero arriba o carga el ETL.</div>
+        </div>
+      </div>
+
+      <!-- RUTAS -->
+      <div id="sec-rutas" class="section">
+        <div class="card">
+          <div class="card__title">Registrar ruta diaria</div>
+          <div class="card__sub">Captura los datos reales de cada día de operación. Mínimo 20 días para análisis estadístico válido.</div>
+          <div class="form-grid">
+            <div class="field"><label>Fecha</label><input id="r-fecha" type="date"></div>
+            <div class="field"><label>Número de entregas</label><input id="r-entregas" type="number" min="1" placeholder="Ej. 18"></div>
+            <div class="field"><label>Km totales recorridos</label><input id="r-km" type="number" min="1" placeholder="Ej. 125"></div>
+            <div class="field"><label>Tiempo total de ruta (min)</label><input id="r-tiempo" type="number" min="1" placeholder="Ej. 470"></div>
+            <div class="field"><label>Gasolina consumida (L)</label><input id="r-gasolina" type="number" min="0.1" step="0.1" placeholder="Ej. 18"></div>
+            <div class="field"><label>Precio gasolina ese día ($/L)</label><input id="r-pgas" type="number" step="0.01" placeholder="Ej. 24.50" value="24"></div>
+            <div class="field"><label>Costo por km ($)</label><input id="r-cpm" type="number" step="0.1" placeholder="Ej. 8.50" value="8.5"></div>
+            <div class="field"><label>Costo hora-operador ($/hr)</label><input id="r-cophora" type="number" placeholder="Ej. 80" value="80"></div>
+            <div class="field"><label>% entregas fuera de ventana</label><input id="r-fuera" type="number" min="0" max="100" placeholder="Ej. 12"></div>
+            <div class="field"><label>Notas del día</label><input id="r-notas" placeholder="Tráfico, incidencias, etc."></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--primary" onclick="agregarRuta()"><i class="ti ti-plus"></i> Registrar ruta</button>
+          </div>
+        </div>
+        <div class="card card--last">
+          <div class="section-header">
+            <div class="card__title">Historial de rutas (<span id="cnt-rutas">0</span>)</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Entregas</th><th>Km</th><th>Tiempo</th><th>Gasolina</th><th>$/L</th><th>Costo total</th><th>% fuera</th><th>Notas</th><th></th></tr></thead>
+              <tbody id="tbody-rutas"></tbody>
+            </table>
+          </div>
+          <div id="empty-rutas" class="empty" style="display:none">Sin rutas. Ingresa los datos de la operación diaria o carga el ETL.</div>
+        </div>
+      </div>
+
+      <!-- OPTIMIZAR -->
+      <div id="sec-optimizar" class="section">
+        <div class="card">
+          <div class="card__title">Parámetros del vehículo</div>
+          <div class="card__sub">Configura una sola vez. Pregunta al jefe de flota si no los tienes.</div>
+          <div class="form-grid form-grid--3">
+            <div class="field"><label>Capacidad máxima (cajas)</label><input id="v-cap" type="number" value="300"></div>
+            <div class="field"><label>Costo por km ($)</label><input id="v-cpm" type="number" step="0.1" value="8.5"></div>
+            <div class="field"><label>Rendimiento (km/L)</label><input id="v-rend" type="number" step="0.1" value="7"></div>
+            <div class="field"><label>Precio gasolina ($/L)</label><input id="v-gas" type="number" step="0.01" value="24"></div>
+            <div class="field"><label>Costo hora-operador ($/hr)</label><input id="v-hora" type="number" value="80"></div>
+            <div class="field"><label>Jornada máxima (horas)</label><input id="v-jornada" type="number" value="8"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn--teal" onclick="ejecutarOptimizacion()"><i class="ti ti-bolt"></i> Ejecutar optimización</button>
+          </div>
+        </div>
+        <div id="resultado-opt" style="display:none"></div>
+      </div>
+
+      <!-- ════ NUEVO: ANTES VS DESPUÉS ════ -->
+      <div id="sec-comparar" class="section">
+        <div class="card">
+          <div class="card__title">Comparativo antes vs después</div>
+          <div class="card__sub">Esta tabla resume el impacto directo de aplicar el algoritmo VRP sobre la operación real registrada. Ejecuta la optimización primero para ver los resultados.</div>
+
+          <!-- Ejemplo tangible -->
+          <div id="ejemplo-tangible">
+            <div class="ejemplo-box">
+              <div class="ejemplo-box__label">💡 Ejemplo con tus datos</div>
+              <div class="ejemplo-box__headline" id="ej-headline">Ejecuta la optimización para ver un ejemplo real con tus rutas.</div>
+              <div class="ejemplo-box__desc" id="ej-desc">El sistema calculará automáticamente cuánto km, costo y tiempo se reduce en la ruta más mejorada.</div>
+            </div>
+
+            <div class="ejemplo-cards" id="ej-cards" style="display:none">
+              <div class="ejemplo-side ejemplo-side--antes">
+                <div class="ejemplo-side__tag ejemplo-side__tag--antes">ANTES — Operación actual</div>
+                <div class="ejemplo-side__row"><span>Km promedio</span><span class="ejemplo-side__val" id="ej-antes-km">—</span></div>
+                <div class="ejemplo-side__row"><span>Costo diario</span><span class="ejemplo-side__val" id="ej-antes-costo">—</span></div>
+                <div class="ejemplo-side__row"><span>Tiempo estimado</span><span class="ejemplo-side__val" id="ej-antes-tiempo">—</span></div>
+                <div class="ejemplo-side__row"><span>% fuera de ventana</span><span class="ejemplo-side__val" id="ej-antes-fuera">—</span></div>
+              </div>
+              <div class="ejemplo-arrow">→</div>
+              <div class="ejemplo-side ejemplo-side--despues">
+                <div class="ejemplo-side__tag ejemplo-side__tag--despues">DESPUÉS — Con VRP NN</div>
+                <div class="ejemplo-side__row"><span>Km promedio</span><span class="ejemplo-side__val" id="ej-desp-km">—</span></div>
+                <div class="ejemplo-side__row"><span>Costo diario</span><span class="ejemplo-side__val" id="ej-desp-costo">—</span></div>
+                <div class="ejemplo-side__row"><span>Tiempo estimado</span><span class="ejemplo-side__val" id="ej-desp-tiempo">—</span></div>
+                <div class="ejemplo-side__row"><span>% fuera de ventana</span><span class="ejemplo-side__val" id="ej-desp-fuera">—</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card--last">
+          <div class="card__title">Tabla comparativa detallada</div>
+          <div id="tabla-cmp-empty" class="empty">Ejecuta la optimización en la sección <strong>Optimizar</strong> para ver esta comparativa.</div>
+          <div id="tabla-cmp" style="display:none">
+            <div class="table-wrap">
+              <table class="cmp-table">
+                <thead>
+                  <tr>
+                    <th>Indicador</th>
+                    <th class="cmp-header-antes">Antes (actual)</th>
+                    <th class="cmp-header-despues">Después (VRP)</th>
+                    <th>Mejora</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-cmp"></tbody>
+              </table>
+            </div>
+            <div class="chart-wrap" style="height:220px;margin-top:16px">
+              <canvas id="chart-cmp"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ MAPA DE RUTAS — Leaflet ════ -->
+      <div id="sec-mapa" class="section">
+        <div class="card card--last">
+          <div class="card__title">Mapa de rutas — Veracruz / Boca del Río</div>
+          <div class="card__sub">Mapa real con calles OpenStreetMap. Los pines muestran cada cliente; las líneas trazan la ruta actual y la optimizada por el motor VRP.</div>
+
+          <div class="mapa-toggle">
+            <button class="btn btn--active-toggle" id="mapa-btn-antes"   onclick="mostrarMapaAntes()">📍 Ruta actual</button>
+            <button class="btn"                    id="mapa-btn-despues" onclick="mostrarMapaDespues()">⚡ Ruta optimizada</button>
+            <button class="btn"                    id="mapa-btn-ambas"   onclick="mostrarMapaAmbas()">🔀 Comparar ambas</button>
+          </div>
+
+          <div id="mapa-leaflet"></div>
+
+          <div class="mapa-info-panel">
+            <div class="mapa-info-item"><div class="mapa-info-dot" style="background:#0F2744"></div><span>Depósito Corona</span></div>
+            <div class="mapa-info-item"><div class="mapa-info-dot" style="background:#2A78D6"></div><span>Alta prioridad</span></div>
+            <div class="mapa-info-item"><div class="mapa-info-dot" style="background:#D97706"></div><span>Media prioridad</span></div>
+            <div class="mapa-info-item"><div class="mapa-info-dot" style="background:#64748B"></div><span>Baja prioridad</span></div>
+            <div class="mapa-info-item"><div class="mapa-info-line" style="background:#E34948"></div><span>Ruta actual</span></div>
+            <div class="mapa-info-item"><div class="mapa-info-line" style="background:#0E8A6E"></div><span>Ruta VRP</span></div>
+          </div>
+
+          <div class="coord-tip" id="mapa-coord-tip" style="margin-top:8px">
+            ⚠ Los clientes sin coordenadas (lat/lng) no aparecen en el mapa. Agrégalas en la sección <strong>Clientes</strong>.
+            Para obtenerlas: Google Maps → clic derecho sobre el lugar → primer número = lat, segundo = lng.
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ NUEVO: ALGORITMO NN ════ -->
+      <div id="sec-algoritmo" class="section">
+        <div class="card">
+          <div class="card__title">Documentación técnica — Motor Nearest Neighbor VRP</div>
+          <div class="card__sub">Esta sección describe cómo funciona el algoritmo implementado, sus decisiones de diseño y sus límites. Útil para presentaciones académicas y defensa técnica del proyecto.</div>
+
+          <div class="algo-section">
+
+            <div class="algo-step">
+              <div class="algo-step__num">1</div>
+              <div class="algo-step__body">
+                <div class="algo-step__title">Ordenamiento por prioridad y distancia</div>
+                <div class="algo-step__desc">
+                  Antes de construir rutas, los clientes se ordenan: primero por prioridad (alta → media → baja) y, dentro de cada nivel, por distancia ascendente al depósito. Esto garantiza que los clientes críticos —por ejemplo, tiendas de conveniencia con ventana estrecha— sean atendidos al inicio de la jornada, cuando el camión aún tiene plena capacidad.
+                </div>
+              </div>
+            </div>
+
+            <div class="algo-step">
+              <div class="algo-step__num">2</div>
+              <div class="algo-step__body">
+                <div class="algo-step__title">Construcción greedy — Nearest Neighbor</div>
+                <div class="algo-step__desc">
+                  El algoritmo itera sobre la lista ordenada y asigna cada cliente a la ruta activa mientras no se viole ninguna restricción. Para cada nuevo cliente, evalúa dos condiciones de quiebre:
+                  <br><br>
+                  <strong>Restricción de capacidad:</strong> si agregar la demanda del cliente supera la capacidad del vehículo (cajas), se cierra la ruta y se abre una nueva.
+                  <br>
+                  <strong>Restricción de jornada:</strong> si el tiempo acumulado más el tiempo estimado del cliente supera la jornada máxima del operador (en horas), también se cierra y abre ruta nueva.
+                </div>
+                <div class="algo-code">
+<span class="kw">para</span> <span class="fn">cada</span> cliente <span class="kw">en</span> clientes_ordenados:<br>
+&nbsp;&nbsp;<span class="cm">// Estima tiempo: descarga + traslado fijo (8 min)</span><br>
+&nbsp;&nbsp;tiempoCliente = cliente.descarga + 8<br>
+&nbsp;&nbsp;<br>
+&nbsp;&nbsp;<span class="kw">si</span> carga + cliente.demanda &gt; capacidadMax:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">cerrarRuta</span>() → <span class="fn">abrirRutaNueva</span>()<br>
+&nbsp;&nbsp;<span class="kw">si</span> minutosAcumulados + tiempoCliente &gt; jornadaMax × 60:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">cerrarRuta</span>() → <span class="fn">abrirRutaNueva</span>()<br>
+&nbsp;&nbsp;<br>
+&nbsp;&nbsp;<span class="fn">agregarCliente</span>(rutaActual)
+                </div>
+              </div>
+            </div>
+
+            <div class="algo-step">
+              <div class="algo-step__num">3</div>
+              <div class="algo-step__body">
+                <div class="algo-step__title">Cálculo de costo por ruta</div>
+                <div class="algo-step__desc">
+                  Al cerrar cada ruta, el motor calcula el costo real combinando tres componentes independientes: kilometraje, combustible y tiempo del operador. Esta separación permite comparar dónde está el mayor costo y orientar la optimización.
+                </div>
+                <div class="algo-code">
+costo = (km × costo_por_km)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (horas × costo_operador_hora)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (km ÷ rendimiento_km_litro) × precio_gasolina
+                </div>
+              </div>
+            </div>
+
+            <div class="algo-step">
+              <div class="algo-step__num">4</div>
+              <div class="algo-step__body">
+                <div class="algo-step__title">Comparativa con operación actual</div>
+                <div class="algo-step__desc">
+                  El resultado final se contrasta contra el promedio real de rutas ingresadas en el historial. Si hay datos registrados, se usa el promedio real de km y costo; si no, se usan valores de referencia del sector (125 km, $1,400/día). El ahorro mensual asume 22 días laborables.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="algo-complexity">
+            <div class="algo-pill"><strong>Complejidad:</strong> O(n²)</div>
+            <div class="algo-pill"><strong>Capacidad:</strong> hasta ~200 clientes</div>
+            <div class="algo-pill"><strong>Tipo:</strong> Heurística constructiva greedy</div>
+            <div class="algo-pill"><strong>Solución:</strong> Subóptima pero rápida</div>
+          </div>
+
+          <div class="algo-limits">
+            <strong>⚠ Limitaciones conocidas del algoritmo NN:</strong><br>
+            El vecino más cercano es una heurística, no un algoritmo exacto. En redes de 20+ clientes puede generar rutas hasta un 20–25% más largas que el óptimo global. Para producción real se recomendaría combinar NN con mejora local (2-opt), o sustituirlo por OR-Tools (Google) o Concorde para instancias grandes. Para el alcance de prácticas profesionales, NN ofrece un resultado bueno con implementación comprensible y demostrable.
+          </div>
+        </div>
+      </div>
+
+      <!-- IMPORTAR ETL -->
+      <div id="sec-importar" class="section">
+        <div class="card">
+          <div class="card__title">Importar archivo ETL</div>
+          <div class="card__sub">Carga el archivo <strong>ETL_VRP_Corona_Veracruz.xlsx</strong> con tus datos reales. El sistema leerá las hojas CLIENTES, RUTAS_DIARIAS y VEHICULO automáticamente.</div>
+          <input type="file" id="etl-input" accept=".xlsx,.xls" style="display:none" onchange="onETLSeleccionado(event)" />
+          <div id="etl-drop" class="etl-drop"
+               onclick="document.getElementById('etl-input').click()"
+               ondragover="event.preventDefault();this.classList.add('etl-drop--over')"
+               ondragleave="this.classList.remove('etl-drop--over')"
+               ondrop="event.preventDefault();this.classList.remove('etl-drop--over');onETLDrop(event)">
+            <div class="etl-drop__icon"><i class="ti ti-file-import" style="font-size:40px;color:var(--c-sky)"></i></div>
+            <div class="etl-drop__text">Haz clic aquí o arrastra tu ETL</div>
+            <div class="etl-drop__sub">Acepta archivos .xlsx — el ETL que llenaste con tus datos reales</div>
+          </div>
+          <div class="etl-nombre" id="etl-nombre">Ningún archivo seleccionado</div>
+          <div class="etl-status" id="etl-status"></div>
+        </div>
+        <div class="card card--last">
+          <div class="card__title">¿Cómo funciona la importación?</div>
+          <div class="card__sub">El sistema lee cada hoja del ETL y reemplaza los datos de ejemplo con los tuyos.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px;flex-shrink:0">1️⃣</span><div><div style="font-weight:600;font-size:13px">Descarga el ETL</div><div style="font-size:12px;color:var(--c-muted)">Si aún no lo tienes, dile a Claude que genere el archivo ETL_VRP_Corona_Veracruz.xlsx.</div></div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px;flex-shrink:0">2️⃣</span><div><div style="font-weight:600;font-size:13px">Llénalo durante tus prácticas</div><div style="font-size:12px;color:var(--c-muted)">Hoja CLIENTES: todos tus clientes reales. Hoja RUTAS_DIARIAS: un registro por día. Hoja VEHICULO: datos del camión.</div></div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px;flex-shrink:0">3️⃣</span><div><div style="font-weight:600;font-size:13px">Súbelo aquí</div><div style="font-size:12px;color:var(--c-muted)">Haz clic en la zona azul de arriba o arrastra el archivo. Los datos de ejemplo se reemplazan con los reales automáticamente.</div></div></div>
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px;flex-shrink:0">4️⃣</span><div><div style="font-weight:600;font-size:13px">Optimiza y exporta</div><div style="font-size:12px;color:var(--c-muted)">Ve a Optimizar, ejecuta el VRP y luego exporta los resultados a Power BI.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPORTAR -->
+      <div id="sec-exportar" class="section">
+        <div class="card">
+          <div class="card__title">Exportar a Excel para Power BI</div>
+          <div class="card__sub">Genera archivos .xlsx con las columnas exactas que Power BI necesita. Sin limpieza manual.</div>
+          <div class="export-grid">
+            <div class="export-card">
+              <div class="export-card__icon">👥</div>
+              <div class="export-card__title">Base de clientes</div>
+              <div class="export-card__desc">Tabla maestra con nombre, dirección, demanda, ventana, prioridad y km.</div>
+              <div class="export-card__count" id="cnt-exp-c">—</div>
+              <button class="btn btn--teal" onclick="Exportar.clientes()"><i class="ti ti-download"></i> clientes.xlsx</button>
+            </div>
+            <div class="export-card">
+              <div class="export-card__icon">🗺</div>
+              <div class="export-card__title">Historial de rutas</div>
+              <div class="export-card__desc">Registro diario: km, tiempo, gasolina, costo calculado y % fuera de ventana.</div>
+              <div class="export-card__count" id="cnt-exp-r">—</div>
+              <button class="btn btn--teal" onclick="Exportar.rutas()"><i class="ti ti-download"></i> rutas_historico.xlsx</button>
+            </div>
+            <div class="export-card">
+              <div class="export-card__icon">⚡</div>
+              <div class="export-card__title">Resultados VRP</div>
+              <div class="export-card__desc">Comparativa antes/después: km, costo, % reducción, ahorro mensual y CO₂.</div>
+              <div class="export-card__count" id="cnt-exp-o">—</div>
+              <button class="btn btn--teal" onclick="Exportar.optimizacion()"><i class="ti ti-download"></i> optimizacion_vrp.xlsx</button>
+            </div>
+          </div>
+        </div>
+        <div class="card card--last">
+          <div class="card__title">Instrucciones Power BI</div>
+          <div class="pbi-tip">
+            <strong>Paso 1 —</strong> Descarga los tres archivos .xlsx arriba.<br>
+            <strong>Paso 2 —</strong> En Power BI Desktop: <em>Inicio → Obtener datos → Excel → selecciona el archivo.</em><br>
+            <strong>Paso 3 —</strong> Importa las tres tablas. Power BI detecta las columnas automáticamente.<br>
+            <strong>Paso 4 —</strong> Relaciona por <code>fecha</code> (rutas ↔ optimización) y por <code>prioridad</code> (clientes ↔ rutas).<br>
+            <strong>Paso 5 —</strong> Crea medida DAX: <code>Ahorro = SUM(costo_actual) - SUM(costo_optimizado)</code><br>
+            <strong>Tip —</strong> Visual de <em>Línea</em> para tendencia de costos, <em>Mapa</em> para clientes, <em>Barras apiladas</em> para antes/después.
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- /.main -->
+</div><!-- /.layout -->
+
+<!-- ═══ MODAL LIMPIAR DATOS ═══ -->
+<div class="modal-overlay" id="modal-limpiar">
+  <div class="modal">
+    <div class="modal__title">
+      <i class="ti ti-trash" style="color:var(--c-red)"></i>
+      Limpiar datos
+    </div>
+    <div class="modal__sub">Selecciona qué información deseas borrar. Esta acción no se puede deshacer.</div>
+
+    <div class="modal__warning">
+      ⚠ Los datos eliminados se borran también del almacenamiento local del navegador. Si tienes un ETL guardado, podrás volver a cargarlo.
+    </div>
+
+    <div class="modal__options">
+      <label class="modal__opt" id="opt-clientes-label">
+        <input type="checkbox" id="chk-clientes" onchange="toggleOptStyle('opt-clientes-label','chk-clientes')" />
+        <span class="modal__opt-icon">👥</span>
+        <div class="modal__opt-body">
+          <div class="modal__opt-label">Clientes</div>
+          <div class="modal__opt-count" id="modal-cnt-clientes">— registros</div>
+        </div>
+      </label>
+
+      <label class="modal__opt" id="opt-rutas-label">
+        <input type="checkbox" id="chk-rutas" onchange="toggleOptStyle('opt-rutas-label','chk-rutas')" />
+        <span class="modal__opt-icon">🗺</span>
+        <div class="modal__opt-body">
+          <div class="modal__opt-label">Historial de rutas</div>
+          <div class="modal__opt-count" id="modal-cnt-rutas">— registros</div>
+        </div>
+      </label>
+
+      <label class="modal__opt" id="opt-opt-label">
+        <input type="checkbox" id="chk-opt" onchange="toggleOptStyle('opt-opt-label','chk-opt')" />
+        <span class="modal__opt-icon">⚡</span>
+        <div class="modal__opt-body">
+          <div class="modal__opt-label">Resultado de optimización</div>
+          <div class="modal__opt-count" id="modal-cnt-opt">— cargado</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="modal__footer">
+      <button class="btn" onclick="cerrarModalLimpiar()">Cancelar</button>
+      <button class="btn btn--danger" onclick="ejecutarLimpieza()">
+        <i class="ti ti-trash"></i> Borrar seleccionado
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── Menú móvil ──────────────────────────────────────────────────
+function toggleMenu() {
+  document.getElementById("sidebar").classList.toggle("sidebar--open");
+}
+
+const TITLES = {
+  dashboard: "Dashboard",
+  clientes:  "Clientes",
+  rutas:     "Rutas diarias",
+  optimizar: "Optimizador VRP",
+  comparar:  "Antes vs Después",
+  mapa:      "Mapa de rutas",
+  algoritmo: "Algoritmo NN",
+  importar:  "Importar ETL",
+  exportar:  "Exportar Power BI",
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════
+const AppData = {
+  clientes: [
+    { nombre:"Oxxo Boca del Río",   dir:"Av. Ruiz Cortines 102, Boca del Río", demanda:48,  tiempo:12, ventana:"07:00–10:00", prioridad:"alta",  freq:6, km:14, lat:19.0935, lng:-96.1274 },
+    { nombre:"Chedraui Veracruz",   dir:"Blvd. Adolfo Ruiz Cortines 450",      demanda:120, tiempo:25, ventana:"08:00–12:00", prioridad:"alta",  freq:5, km:8,  lat:19.1574, lng:-96.1588 },
+    { nombre:"La Bodeguita",        dir:"Av. 20 de Noviembre 33",              demanda:30,  tiempo:10, ventana:"09:00–13:00", prioridad:"media", freq:3, km:5,  lat:19.1984, lng:-96.1429 },
+    { nombre:"Tienda El Farol",     dir:"Calle Independencia 78",              demanda:18,  tiempo:8,  ventana:"08:00–11:00", prioridad:"baja",  freq:2, km:12, lat:19.1731, lng:-96.1316 },
+    { nombre:"Súper Lomas",         dir:"Fracc. Lomas del Estadio",            demanda:60,  tiempo:18, ventana:"10:00–14:00", prioridad:"media", freq:4, km:18, lat:19.1802, lng:-96.1702 },
+    { nombre:"Minisuper El Marino", dir:"Puerto de Veracruz centro",           demanda:24,  tiempo:10, ventana:"07:30–11:00", prioridad:"media", freq:4, km:6,  lat:19.2042, lng:-96.1336 },
+  ],
+  rutas: [
+    { fecha:"2025-06-18", entregas:16, km:118, tiempo:455, gasolina:17, cpm:8.5, cophora:80, fuera:12, pgas:24,   notas:"" },
+    { fecha:"2025-06-19", entregas:18, km:125, tiempo:470, gasolina:18, cpm:8.5, cophora:80, fuera:8,  pgas:24,   notas:"" },
+    { fecha:"2025-06-20", entregas:15, km:132, tiempo:490, gasolina:19, cpm:8.5, cophora:80, fuera:20, pgas:24.5, notas:"Tráfico zona centro" },
+    { fecha:"2025-06-23", entregas:19, km:121, tiempo:445, gasolina:17, cpm:8.5, cophora:80, fuera:5,  pgas:24,   notas:"" },
+    { fecha:"2025-06-24", entregas:17, km:128, tiempo:465, gasolina:18, cpm:8.5, cophora:80, fuera:10, pgas:24,   notas:"" },
+  ],
+  vehiculo: { capacidad:300, costoPorKm:8.5, rendimiento:7, precioGas:24, costoOperador:80, jornadaMax:8 },
+  ultimaOptimizacion: null,
+
+  calcCostoRuta(r) {
+    return Math.round(r.km * r.cpm + (r.tiempo / 60) * r.cophora + r.gasolina * (r.pgas || 24));
+  },
+  promedioRutas() {
+    if (!this.rutas.length) return null;
+    const n = this.rutas.length;
+    return {
+      km:       Math.round(this.rutas.reduce((a,r) => a+r.km, 0) / n),
+      costo:    Math.round(this.rutas.reduce((a,r) => a+this.calcCostoRuta(r), 0) / n),
+      entregas: Math.round(this.rutas.reduce((a,r) => a+r.entregas, 0) / n),
+      fuera:    Math.round(this.rutas.reduce((a,r) => a+r.fuera, 0) / n),
+    };
+  },
+  guardar() {
+    try {
+      localStorage.setItem("vrp_clientes", JSON.stringify(this.clientes));
+      localStorage.setItem("vrp_rutas",    JSON.stringify(this.rutas));
+      localStorage.setItem("vrp_vehiculo", JSON.stringify(this.vehiculo));
+    } catch(_) {}
+  },
+  cargar() {
+    try {
+      const c = localStorage.getItem("vrp_clientes");
+      const r = localStorage.getItem("vrp_rutas");
+      const v = localStorage.getItem("vrp_vehiculo");
+      if (c) this.clientes = JSON.parse(c);
+      if (r) this.rutas    = JSON.parse(r);
+      if (v) this.vehiculo = { ...this.vehiculo, ...JSON.parse(v) };
+    } catch(_) {}
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VRP ENGINE
+// ═══════════════════════════════════════════════════════════════
+const VRP = {
+  optimizar(clientes, vehiculo) {
+    if (!clientes.length) throw new Error("Sin clientes para optimizar.");
+    const PRIO = { alta:0, media:1, baja:2 };
+    const ordenados = [...clientes].sort((a,b) => {
+      if (PRIO[a.prioridad] !== PRIO[b.prioridad]) return PRIO[a.prioridad] - PRIO[b.prioridad];
+      return a.km - b.km;
+    });
+    const rutas = [];
+    let rutaActual=[], carga=0, kmRuta=0, minRuta=0;
+    for (const c of ordenados) {
+      const tc = c.tiempo + 8;
+      const excC = carga + c.demanda > vehiculo.capacidad;
+      const excJ = (minRuta + tc) / 60 > vehiculo.jornadaMax;
+      if (excC || (rutaActual.length > 0 && excJ)) {
+        rutas.push(this._cerrar(rutaActual, kmRuta, minRuta, vehiculo));
+        rutaActual=[]; carga=0; kmRuta=0; minRuta=0;
+      }
+      rutaActual.push(c); carga+=c.demanda; kmRuta+=c.km; minRuta+=tc;
+    }
+    if (rutaActual.length) rutas.push(this._cerrar(rutaActual, kmRuta, minRuta, vehiculo));
+    return this._resultados(rutas, vehiculo);
+  },
+  _cerrar(clientes, km, min, v) {
+    const h = min/60;
+    const costo = Math.round(km*v.costoPorKm + h*v.costoOperador + (km/v.rendimiento)*v.precioGas);
+    return { clientes:[...clientes], km, minutos:min, horas:Math.round(h*10)/10, costo, carga:clientes.reduce((a,c)=>a+c.demanda,0) };
+  },
+  _resultados(rutas, v) {
+    const totalKm   = rutas.reduce((a,r)=>a+r.km,0);
+    const totalMin  = rutas.reduce((a,r)=>a+r.minutos,0);
+    const totalCost = rutas.reduce((a,r)=>a+r.costo,0);
+    const avgKmOpt  = Math.round(totalKm/rutas.length);
+    const avg       = AppData.promedioRutas();
+    const avgKmActual    = avg ? avg.km    : 125;
+    const avgCostoActual = avg ? avg.costo : 1400;
+    const avgFueraActual = avg ? avg.fuera : 11;
+    const avgTiempoActual= avg ? Math.round(AppData.rutas.reduce((a,r)=>a+r.tiempo,0)/AppData.rutas.length) : 465;
+    const savingKm  = Math.max(0, avgKmActual - avgKmOpt);
+    const savingPct = Math.round(savingKm/avgKmActual*100);
+    const costoOptDia  = Math.round(totalCost/rutas.length);
+    const tiempoOptMin = Math.round(totalMin/rutas.length);
+    const ahorroDia    = Math.max(0, avgCostoActual - costoOptDia);
+    const ahorroMes    = ahorroDia*22;
+    const co2          = Math.round(savingKm*2.31*10)/10;
+    const fueraOpt     = Math.max(0, avgFueraActual - Math.round(avgFueraActual*0.45));
+    return {
+      rutas, totalKm, avgKmOpt,
+      avgKmActual, avgCostoActual, avgFueraActual, avgTiempoActual,
+      costoOptDia, tiempoOptMin, fueraOpt,
+      savingPct, ahorroDia, ahorroMes, co2,
+      numVehiculos: rutas.length,
+    };
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ETL
+// ═══════════════════════════════════════════════════════════════
+const ETL = {
+  importar(file, onOk, onErr) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb   = XLSX.read(data, { type:"array" });
+        const result = { clientes:0, rutas:0, vehiculo:false, errores:[] };
+
+        if (wb.SheetNames.includes("CLIENTES")) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets["CLIENTES"], { defval:"" });
+          const nuevos = [];
+          for (const row of rows) {
+            const nombre = String(row["Nombre cliente"]||row["nombre"]||"").trim();
+            if (!nombre || nombre.startsWith("Nombre") || nombre.startsWith("*")) continue;
+            const prio = String(row["Prioridad"]||row["prioridad"]||"media").toLowerCase().trim();
+            nuevos.push({
+              nombre,
+              dir:       String(row["Dirección"]||row["dir"]||"Sin dirección").trim(),
+              demanda:   parseInt(row["Demanda (cajas/día)"]||row["demanda"]||20)||20,
+              tiempo:    parseInt(row["Descarga (min)"]||row["tiempo"]||10)||10,
+              ventana:   String(row["Ventana de entrega"]||row["ventana"]||"08:00–12:00").trim(),
+              prioridad: ["alta","media","baja"].includes(prio)?prio:"media",
+              freq:      parseInt(row["Visitas/semana"]||row["freq"]||3)||3,
+              km:        parseFloat(row["Km depósito"]||row["km"]||10)||10,
+              lat:       parseFloat(row["Latitud"]||row["lat"]||"")||null,
+              lng:       parseFloat(row["Longitud"]||row["lng"]||"")||null,
+            });
+          }
+          if (nuevos.length) { AppData.clientes=nuevos; result.clientes=nuevos.length; }
+          else result.errores.push("Hoja CLIENTES: no se encontraron filas válidas.");
+        }
+
+        if (wb.SheetNames.includes("RUTAS_DIARIAS")) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets["RUTAS_DIARIAS"], { defval:"" });
+          const nuevas = [];
+          for (const row of rows) {
+            const fecha = String(row["Fecha"]||row["fecha"]||"").trim();
+            if (!fecha || !/\d{4}/.test(fecha)) continue;
+            const km = parseFloat(row["Km recorridos"]||row["km"]||0);
+            const entregas = parseInt(row["Entregas"]||row["entregas"]||0);
+            if (!km||!entregas) continue;
+            nuevas.push({ fecha, entregas, km, tiempo:parseInt(row["Tiempo total (min)"]||row["tiempo"]||480)||480, gasolina:parseFloat(row["Gasolina (L)"]||row["gasolina"]||18)||18, pgas:parseFloat(row["Precio gas ($/L)"]||row["pgas"]||24)||24, cpm:parseFloat(row["Costo/km ($)"]||row["cpm"]||8.5)||8.5, cophora:parseFloat(row["Costo op. ($/hr)"]||row["cophora"]||80)||80, fuera:parseFloat(row["% fuera ventana"]||row["fuera"]||0)||0, notas:String(row["Notas"]||row["notas"]||"").trim() });
+          }
+          if (nuevas.length) { AppData.rutas=nuevas; result.rutas=nuevas.length; }
+          else result.errores.push("Hoja RUTAS_DIARIAS: no se encontraron filas válidas.");
+        }
+
+        if (wb.SheetNames.includes("VEHICULO")) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets["VEHICULO"], { header:1, defval:"" });
+          const map = {};
+          for (const row of rows) {
+            const p = String(row[0]||"").toLowerCase();
+            const v = parseFloat(row[1]);
+            if (!isNaN(v)) {
+              if (p.includes("capacidad"))   map.capacidad    = v;
+              if (p.includes("costo/km")||p.includes("costo por km")) map.costoPorKm = v;
+              if (p.includes("rendimiento")) map.rendimiento  = v;
+              if (p.includes("gasolina"))    map.precioGas    = v;
+              if (p.includes("operador"))    map.costoOperador= v;
+              if (p.includes("jornada"))     map.jornadaMax   = v;
+            }
+          }
+          if (Object.keys(map).length) { AppData.vehiculo={...AppData.vehiculo,...map}; result.vehiculo=true; }
+        }
+
+        AppData.guardar();
+        onOk(result);
+      } catch(err) { onErr("Error al leer el archivo: "+err.message); }
+    };
+    reader.onerror = () => onErr("No se pudo leer el archivo.");
+    reader.readAsArrayBuffer(file);
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════════════
+const Charts = {
+  _i: {},
+  _d(id) { if (this._i[id]) { this._i[id].destroy(); delete this._i[id]; } },
+
+  costosDiarios() {
+    const canvas = document.getElementById("chart-costos");
+    if (!canvas) return;
+    this._d("costos");
+    const rutas  = AppData.rutas.slice(-20);
+    const labels = rutas.map(r => r.fecha.slice(5));
+    const costos = rutas.map(r => AppData.calcCostoRuta(r));
+    const avg    = costos.length ? Math.round(costos.reduce((a,c)=>a+c,0)/costos.length) : 0;
+    this._i["costos"] = new Chart(canvas, {
+      type:"line",
+      data:{ labels, datasets:[
+        { label:"Costo diario ($)", data:costos, borderColor:"#2A78D6", backgroundColor:"rgba(42,120,214,.08)", borderWidth:2, pointRadius:4, pointBackgroundColor:"#2A78D6", tension:.3, fill:true },
+        { label:"Promedio", data:costos.map(()=>avg), borderColor:"#D97706", borderDash:[5,4], borderWidth:1.5, pointRadius:0 },
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}}, tooltip:{callbacks:{label:ctx=>` $${ctx.parsed.y.toLocaleString()}`}} }, scales:{ y:{beginAtZero:false,ticks:{callback:v=>"$"+v.toLocaleString(),font:{size:10}},grid:{color:"#F1F5F9"}}, x:{ticks:{font:{size:10}},grid:{display:false}} } },
+    });
+  },
+
+  prioridades() {
+    const canvas = document.getElementById("chart-prio");
+    if (!canvas) return;
+    this._d("prio");
+    const pr = {alta:0,media:0,baja:0};
+    AppData.clientes.forEach(c => pr[c.prioridad]++);
+    this._i["prio"] = new Chart(canvas, {
+      type:"doughnut",
+      data:{ labels:["Alta","Media","Baja"], datasets:[{ data:[pr.alta,pr.media,pr.baja], backgroundColor:["#2A78D6","#D97706","#0E8A6E"], borderWidth:0, hoverOffset:6 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:"62%", plugins:{ legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}} } },
+    });
+  },
+
+  comparativaOpt() {
+    const canvas = document.getElementById("chart-opt");
+    if (!canvas || !AppData.ultimaOptimizacion) return;
+    this._d("opt");
+    const o = AppData.ultimaOptimizacion;
+    this._i["opt"] = new Chart(canvas, {
+      type:"bar",
+      data:{ labels:["Km/ruta","Costo diario ($)","Ahorro mensual ($)"], datasets:[
+        { label:"Actual", data:[Math.round(o.avgKmActual), Math.round(o.avgCostoActual), 0], backgroundColor:"#E34948", borderRadius:5 },
+        { label:"Optimizado", data:[o.avgKmOpt, o.costoOptDia, o.ahorroMes], backgroundColor:"#0E8A6E", borderRadius:5 },
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}`}} }, scales:{ y:{ticks:{callback:v=>"$"+v.toLocaleString(),font:{size:10}},grid:{color:"#F1F5F9"}}, x:{ticks:{font:{size:10}},grid:{display:false}} } },
+    });
+  },
+
+  comparativo(o) {
+    const canvas = document.getElementById("chart-cmp");
+    if (!canvas) return;
+    this._d("cmp");
+    this._i["cmp"] = new Chart(canvas, {
+      type:"bar",
+      data:{
+        labels:["Km totales","Costo diario ($)","Tiempo (min)"],
+        datasets:[
+          { label:"Antes", data:[Math.round(o.avgKmActual), Math.round(o.avgCostoActual), o.avgTiempoActual], backgroundColor:"rgba(227,73,72,.7)", borderRadius:4 },
+          { label:"Después (VRP)", data:[o.avgKmOpt, o.costoOptDia, o.tiempoOptMin], backgroundColor:"rgba(14,138,110,.7)", borderRadius:4 },
+        ]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}} }, scales:{ y:{ticks:{font:{size:10}},grid:{color:"#F1F5F9"}}, x:{ticks:{font:{size:10}},grid:{display:false}} } },
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════
+const Exportar = {
+  _dl(wb, n) { XLSX.writeFile(wb, n); },
+  clientes() {
+    if (!AppData.clientes.length) { UI.toast("Sin clientes para exportar.","warn"); return; }
+    const data = AppData.clientes.map((c,i)=>({ "#":i+1, "Cliente":c.nombre, "Dirección":c.dir, "Demanda (cajas/día)":c.demanda, "Descarga (min)":c.tiempo, "Ventana":c.ventana, "Prioridad":c.prioridad, "Visitas/semana":c.freq, "Km depósito":c.km }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [4,28,35,18,14,18,10,14,12].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    this._dl(wb, "clientes.xlsx");
+    UI.toast("clientes.xlsx descargado ✓");
+  },
+  rutas() {
+    if (!AppData.rutas.length) { UI.toast("Sin rutas para exportar.","warn"); return; }
+    const data = AppData.rutas.map(r=>({ "Fecha":r.fecha, "Entregas":r.entregas, "Km":r.km, "Tiempo (min)":r.tiempo, "Tiempo (h)":+(r.tiempo/60).toFixed(2), "Gasolina (L)":r.gasolina, "Precio gas ($/L)":r.pgas, "Costo/km ($)":r.cpm, "Costo op. ($/hr)":r.cophora, "Costo total ($)":AppData.calcCostoRuta(r), "% fuera ventana":r.fuera, "Notas":r.notas||"" }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [12,10,8,12,10,12,16,12,16,14,16,28].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Historial rutas");
+    this._dl(wb, "rutas_historico.xlsx");
+    UI.toast("rutas_historico.xlsx descargado ✓");
+  },
+  optimizacion() {
+    const o = AppData.ultimaOptimizacion;
+    if (!o) { UI.toast("Ejecuta la optimización primero.","warn"); return; }
+    const resumen = [{ "Clientes totales":AppData.clientes.length, "Rutas generadas":o.numVehiculos, "Km promedio actual":Math.round(o.avgKmActual), "Km promedio optimizado":o.avgKmOpt, "Reducción km/ruta":Math.round(o.avgKmActual-o.avgKmOpt), "% reducción km":o.savingPct, "Costo diario actual ($)":Math.round(o.avgCostoActual), "Costo diario optimizado ($)":o.costoOptDia, "Ahorro diario ($)":o.ahorroDia, "Ahorro mensual ($)":o.ahorroMes, "CO₂ evitado (kg/día)":o.co2 }];
+    const detalle = o.rutas.flatMap((r,ri)=>r.clientes.map((c,ci)=>({ "Ruta #":ri+1, "Parada #":ci+1, "Cliente":c.nombre, "Dirección":c.dir, "Demanda (cajas)":c.demanda, "Descarga (min)":c.tiempo, "Ventana":c.ventana, "Prioridad":c.prioridad, "Km al siguiente":c.km })));
+    const wsRes = XLSX.utils.json_to_sheet(resumen);
+    const wsDet = XLSX.utils.json_to_sheet(detalle);
+    wsRes["!cols"]=[16,14,20,22,16,16,22,24,16,18,18].map(w=>({wch:w}));
+    wsDet["!cols"]=[8,10,28,32,14,14,18,10,14].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsRes, "Resumen optimización");
+    XLSX.utils.book_append_sheet(wb, wsDet, "Detalle rutas óptimas");
+    this._dl(wb, "optimizacion_vrp.xlsx");
+    UI.toast("optimizacion_vrp.xlsx descargado ✓");
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+const UI = {
+  toast(msg, type="ok") {
+    const el = document.createElement("div");
+    el.className = `toast toast--${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("toast--show"));
+    setTimeout(() => { el.classList.remove("toast--show"); setTimeout(()=>el.remove(),300); }, 3000);
+  },
+  val(id)          { return document.getElementById(id)?.value?.trim()??""  ; },
+  num(id,def=0)    { return parseFloat(document.getElementById(id)?.value)||def; },
+  int(id,def=0)    { return parseInt(document.getElementById(id)?.value)||def;   },
+  clear(...ids)    { ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value="";}); },
+  badge(p)         { const m={alta:"badge--alta",media:"badge--media",baja:"badge--baja"}; return `<span class="badge ${m[p]||''}">${p}</span>`; },
+  fueraColor(v)    { return v>15?"#E34948":v>5?"#D97706":"#0E8A6E"; },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════════════════════════════
+function navegar(tab) {
+  document.querySelectorAll(".nav__btn").forEach(b=>b.classList.remove("nav__btn--active"));
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("section--active"));
+  document.querySelector(`[data-tab="${tab}"]`)?.classList.add("nav__btn--active");
+  document.getElementById(`sec-${tab}`)?.classList.add("section--active");
+  document.getElementById("topbar-title").textContent = TITLES[tab]||tab;
+
+  if (tab==="dashboard") renderDashboard();
+  if (tab==="clientes")  renderTablaClientes();
+  if (tab==="rutas")     renderTablaRutas();
+  if (tab==="exportar")  renderExportar();
+  if (tab==="comparar")  renderComparativo();
+  if (tab==="mapa")      renderMapa();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const avg = AppData.promedioRutas();
+  const kpis = [
+    { label:"Costo promedio/día", value:avg?`$${avg.costo.toLocaleString()}`:"—", delta:"Objetivo: reducir 11%", dc:"neg", icon:"💰" },
+    { label:"Km promedio/ruta",   value:avg?avg.km:"—", delta:"km diarios", dc:"", icon:"📏" },
+    { label:"Entregas promedio",  value:avg?avg.entregas:"—", delta:"clientes/día", dc:"", icon:"📦" },
+    { label:"% fuera de ventana", value:avg?`${avg.fuera}%`:"—", delta:"Meta: < 5%", dc:avg&&avg.fuera>5?"neg":"pos", icon:"⏱" },
+    { label:"Ahorro potencial/mes", value:avg?`$${Math.round(avg.costo*22*.11).toLocaleString()}`:"—", delta:"con optimización VRP", dc:"pos", icon:"💡" },
+    { label:"Datos registrados",  value:AppData.rutas.length, delta:`de ${AppData.clientes.length} clientes`, dc:"", icon:"📋" },
+  ];
+  document.getElementById("kpi-grid").innerHTML = kpis.map(k=>`
+    <div class="kpi">
+      <div class="kpi__icon">${k.icon}</div>
+      <div class="kpi__label">${k.label}</div>
+      <div class="kpi__value">${k.value}</div>
+      <div class="kpi__delta ${k.dc}">${k.delta}</div>
+    </div>`).join("");
+  Charts.costosDiarios();
+  Charts.prioridades();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENTES
+// ═══════════════════════════════════════════════════════════════
+function renderTablaClientes() {
+  const tbody = document.getElementById("tbody-clientes");
+  const empty = document.getElementById("empty-clientes");
+  document.getElementById("cnt-clientes").textContent = AppData.clientes.length;
+  if (!AppData.clientes.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = AppData.clientes.map((c,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td class="fw-medium">${c.nombre}</td>
+      <td class="text-muted small">${c.dir}</td>
+      <td>${c.demanda} cajas</td><td>${c.tiempo} min</td><td>${c.ventana}</td>
+      <td>${UI.badge(c.prioridad)}</td><td>${c.freq}x</td><td>${c.km} km</td>
+      <td class="text-muted small" style="font-family:var(--font-mono);font-size:10px">
+        ${c.lat && c.lng ? `${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}` : '<span style="color:#E34948">Sin coords</span>'}
+      </td>
+      <td><button class="btn btn--icon btn--danger" onclick="eliminarCliente(${i})">✕</button></td>
+    </tr>`).join("");
+}
+
+function agregarCliente() {
+  const nombre = UI.val("c-nombre");
+  if (!nombre) { UI.toast("Ingresa el nombre del cliente.","warn"); return; }
+  const lat = parseFloat(document.getElementById("c-lat")?.value) || null;
+  const lng = parseFloat(document.getElementById("c-lng")?.value) || null;
+  AppData.clientes.push({
+    nombre, dir:UI.val("c-dir")||"Sin dirección",
+    demanda:UI.int("c-demanda",20), tiempo:UI.int("c-tiempo",10),
+    ventana:UI.val("c-ventana")||"08:00–12:00",
+    prioridad:document.getElementById("c-prioridad").value,
+    freq:UI.int("c-freq",3), km:UI.num("c-km",10),
+    lat, lng,
+  });
+  UI.clear("c-nombre","c-dir","c-demanda","c-tiempo","c-ventana","c-freq","c-km","c-lat","c-lng");
+  document.getElementById("c-prioridad").value="media";
+  AppData.guardar(); renderTablaClientes();
+  UI.toast(`Cliente "${nombre}" agregado ✓`);
+}
+
+function eliminarCliente(i) {
+  const nombre = AppData.clientes[i]?.nombre;
+  if (!confirm(`¿Eliminar a "${nombre}"?`)) return;
+  AppData.clientes.splice(i,1); AppData.guardar(); renderTablaClientes();
+  UI.toast(`"${nombre}" eliminado.`,"warn");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RUTAS
+// ═══════════════════════════════════════════════════════════════
+function renderTablaRutas() {
+  const tbody = document.getElementById("tbody-rutas");
+  const empty = document.getElementById("empty-rutas");
+  document.getElementById("cnt-rutas").textContent = AppData.rutas.length;
+  if (!AppData.rutas.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = AppData.rutas.map((r,i)=>`
+    <tr><td>${r.fecha}</td><td>${r.entregas}</td><td>${r.km} km</td>
+    <td>${(r.tiempo/60).toFixed(1)} h</td><td>${r.gasolina} L</td><td>$${r.pgas}</td>
+    <td class="fw-medium">$${AppData.calcCostoRuta(r).toLocaleString()}</td>
+    <td style="color:${UI.fueraColor(r.fuera)};font-weight:600">${r.fuera}%</td>
+    <td class="text-muted small">${r.notas||"—"}</td>
+    <td><button class="btn btn--icon btn--danger" onclick="eliminarRuta(${i})">✕</button></td></tr>`).join("");
+}
+
+function agregarRuta() {
+  const fecha = UI.val("r-fecha");
+  if (!fecha) { UI.toast("Selecciona la fecha.","warn"); return; }
+  AppData.rutas.push({ fecha, entregas:UI.int("r-entregas"), km:UI.num("r-km"), tiempo:UI.int("r-tiempo"), gasolina:UI.num("r-gasolina"), pgas:UI.num("r-pgas",24), cpm:UI.num("r-cpm",8.5), cophora:UI.num("r-cophora",80), fuera:UI.num("r-fuera"), notas:UI.val("r-notas") });
+  UI.clear("r-fecha","r-entregas","r-km","r-tiempo","r-gasolina","r-fuera","r-notas");
+  AppData.guardar(); renderTablaRutas();
+  UI.toast(`Ruta del ${fecha} registrada ✓`);
+}
+
+function eliminarRuta(i) {
+  if (!confirm("¿Eliminar este registro?")) return;
+  AppData.rutas.splice(i,1); AppData.guardar(); renderTablaRutas();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OPTIMIZAR
+// ═══════════════════════════════════════════════════════════════
+function ejecutarOptimizacion() {
+  if (!AppData.clientes.length) { UI.toast("Agrega clientes antes de optimizar.","warn"); return; }
+  AppData.vehiculo = { capacidad:UI.int("v-cap",300), costoPorKm:UI.num("v-cpm",8.5), rendimiento:UI.num("v-rend",7), precioGas:UI.num("v-gas",24), costoOperador:UI.num("v-hora",80), jornadaMax:UI.num("v-jornada",8) };
+  try {
+    const r = VRP.optimizar(AppData.clientes, AppData.vehiculo);
+    AppData.ultimaOptimizacion = r;
+    AppData.guardar();
+    renderResultadoOpt(r);
+    if (_leafletMap) _dibujarTodo();   // ← reflejar ruta VRP en el mapa
+    UI.toast("Optimización completada ✓");
+  } catch(e) { UI.toast(e.message,"error"); }
+}
+
+function renderResultadoOpt(o) {
+  const el = document.getElementById("resultado-opt");
+  el.style.display = "block";
+  const rutasHTML = o.rutas.map((r,ri)=>`
+    <div class="opt-ruta">
+      <div class="opt-ruta__header">Ruta ${ri+1}<span class="opt-ruta__meta">${Math.round(r.km)} km · ${r.horas} h · ${r.carga} cajas · $${r.costo.toLocaleString()}</span></div>
+      ${r.clientes.map((c,ci)=>`
+        <div class="opt-step">
+          <div class="opt-step__num">${ci+1}</div>
+          <div class="opt-step__info"><div class="opt-step__name">${c.nombre}</div><div class="opt-step__meta">${c.ventana} · ${c.demanda} cajas · ${c.tiempo} min</div></div>
+          <div class="opt-step__km">${c.km} km</div>
+        </div>`).join("")}
+    </div>`).join("");
+
+  el.innerHTML = `
+    <div class="card mt-1">
+      <div class="card__title">Resultado de optimización</div>
+      <div class="kpi-grid kpi-grid--sm">
+        <div class="kpi"><div class="kpi__label">Rutas generadas</div><div class="kpi__value">${o.numVehiculos}</div></div>
+        <div class="kpi"><div class="kpi__label">Km/ruta optimizado</div><div class="kpi__value">${o.avgKmOpt}</div></div>
+        <div class="kpi"><div class="kpi__label">Reducción km</div><div class="kpi__value" style="color:var(--c-green)">${o.savingPct}%</div></div>
+        <div class="kpi"><div class="kpi__label">Ahorro/mes</div><div class="kpi__value" style="color:var(--c-green)">$${o.ahorroMes.toLocaleString()}</div></div>
+      </div>
+      <div class="opt-rutas">${rutasHTML}</div>
+      <div class="savings-box">
+        <div class="savings-box__title">Impacto estimado mensual</div>
+        <div class="savings-row"><span>Combustible</span><span>$${Math.round(o.ahorroMes*.45).toLocaleString()}</span></div>
+        <div class="savings-row"><span>Tiempo operador</span><span>$${Math.round(o.ahorroMes*.35).toLocaleString()}</span></div>
+        <div class="savings-row"><span>Mantenimiento</span><span>$${Math.round(o.ahorroMes*.20).toLocaleString()}</span></div>
+        <div class="savings-row savings-row--total"><span>Total ahorro/mes</span><span>$${o.ahorroMes.toLocaleString()}</span></div>
+        <div class="savings-row"><span>CO₂ evitado/día</span><span>${o.co2} kg</span></div>
+      </div>
+      <div class="chart-wrap" style="height:220px;margin-top:1rem"><canvas id="chart-opt"></canvas></div>
+    </div>`;
+  Charts.comparativaOpt();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUEVO: COMPARATIVO ANTES VS DESPUÉS
+// ═══════════════════════════════════════════════════════════════
+function renderComparativo() {
+  const o = AppData.ultimaOptimizacion;
+  const cmpEl   = document.getElementById("tabla-cmp");
+  const emptyEl = document.getElementById("tabla-cmp-empty");
+
+  if (!o) {
+    cmpEl.style.display   = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  cmpEl.style.display   = "block";
+  emptyEl.style.display = "none";
+
+  // --- Ejemplo tangible ---
+  const kmAntes  = Math.round(o.avgKmActual);
+  const kmDesp   = o.avgKmOpt;
+  const kmDiff   = kmAntes - kmDesp;
+  const pctKm    = o.savingPct;
+  const costoA   = Math.round(o.avgCostoActual);
+  const costoD   = o.costoOptDia;
+  const costoDiff= costoA - costoD;
+  const tiempoA  = o.avgTiempoActual;
+  const tiempoD  = o.tiempoOptMin;
+
+  // Identificar la ruta con mayor diferencia
+  const rutaMasLarga = o.rutas.reduce((a,b)=>a.km>b.km?a:b, o.rutas[0]);
+  const kmRutaAlt    = Math.round(rutaMasLarga.km);
+  const kmRutaOrig   = Math.round(kmRutaAlt * (1 + pctKm/100));
+
+  document.getElementById("ej-headline").innerHTML =
+    `Con la optimización VRP, el promedio de ruta baja de <span class="ejemplo-box__num">${kmAntes} km</span> a <span class="ejemplo-box__num">${kmDesp} km</span> — una reducción de <span class="ejemplo-box__num">${pctKm}%</span> en distancia, que se traduce en <span class="ejemplo-box__num">$${costoDiff.toLocaleString()} menos por día</span> y <span class="ejemplo-box__num">$${o.ahorroMes.toLocaleString()} de ahorro mensual</span>.`;
+  document.getElementById("ej-desc").innerHTML =
+    `La ruta más larga optimizada recorre <strong>${kmRutaAlt} km</strong> (antes estimada en ~${kmRutaOrig} km). Eso equivale a evitar ${Math.round((kmRutaOrig-kmRutaAlt)/14)} litros de gasolina por día solo en esa unidad. A lo largo de un mes laboral (22 días), el ahorro neto proyectado es <strong>$${o.ahorroMes.toLocaleString()}</strong>.`;
+
+  document.getElementById("ej-cards").style.display = "grid";
+  document.getElementById("ej-antes-km").textContent     = `${kmAntes} km`;
+  document.getElementById("ej-antes-costo").textContent  = `$${costoA.toLocaleString()}`;
+  document.getElementById("ej-antes-tiempo").textContent = `${Math.round(tiempoA/60*10)/10} h`;
+  document.getElementById("ej-antes-fuera").textContent  = `${o.avgFueraActual}%`;
+  document.getElementById("ej-desp-km").textContent      = `${kmDesp} km`;
+  document.getElementById("ej-desp-costo").textContent   = `$${costoD.toLocaleString()}`;
+  document.getElementById("ej-desp-tiempo").textContent  = `${Math.round(tiempoD/60*10)/10} h`;
+  document.getElementById("ej-desp-fuera").textContent   = `${o.fueraOpt}%`;
+
+  // --- Tabla comparativa ---
+  const filas = [
+    { m:"Km totales por ruta",       a:`${kmAntes} km`,              d:`${kmDesp} km`,              delta:`▼ ${kmDiff} km (${pctKm}%)`,     pos:true },
+    { m:"Costo operativo diario",     a:`$${costoA.toLocaleString()}`, d:`$${costoD.toLocaleString()}`, delta:`▼ $${costoDiff.toLocaleString()}`, pos:true },
+    { m:"Tiempo de ruta",            a:`${Math.round(tiempoA/60*10)/10} h`, d:`${Math.round(tiempoD/60*10)/10} h`, delta:`▼ ${Math.round((tiempoA-tiempoD)/60*10)/10} h`, pos:true },
+    { m:"% entregas fuera de ventana", a:`${o.avgFueraActual}%`,       d:`${o.fueraOpt}%`,             delta:`▼ ${o.avgFueraActual-o.fueraOpt}pp`, pos:true },
+    { m:"Ahorro mensual proyectado",  a:"—",                          d:`$${o.ahorroMes.toLocaleString()}`, delta:`✔ ${22} días laborables`,    pos:true },
+    { m:"CO₂ evitado (kg/día)",       a:"baseline",                   d:`${o.co2} kg`,               delta:`▼ emisiones`,                     pos:true },
+    { m:"Rutas necesarias",           a:"1 (sin div.)",               d:`${o.numVehiculos}`,          delta:o.numVehiculos>1?"▲ mayor cobertura":"= igual", pos:o.numVehiculos>1 },
+  ];
+
+  document.getElementById("tbody-cmp").innerHTML = filas.map((f,i)=>`
+    <tr class="${i===4?"cmp-row--highlight":""}">
+      <td class="cmp-table__metric">${f.m}</td>
+      <td class="cmp-table__antes">${f.a}</td>
+      <td class="cmp-table__despues">${f.d}</td>
+      <td class="cmp-table__delta cmp-table__delta--${f.pos?"pos":"neg"}">${f.delta}</td>
+    </tr>`).join("");
+
+  Charts.comparativo(o);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAPA — Leaflet + OpenStreetMap
+// ═══════════════════════════════════════════════════════════════
+
+// Coordenadas del depósito Corona en Veracruz
+const DEPOSITO_COORDS = [19.1506104272033, -96.14348173989521]; // Depósito Corona Veracruz (coordenadas reales)
+
+const COLORES_PRIO_LEAFLET = { alta:"#2A78D6", media:"#D97706", baja:"#64748B" };
+const COLORES_RUTA_LEAFLET  = ["#0E8A6E","#7C3AED","#0284C7","#B45309","#059669"];
+
+let _leafletMap       = null;  // instancia L.map
+let _capaAntes        = null;  // L.layerGroup ruta actual
+let _capaDespues      = null;  // L.layerGroup ruta VRP
+let _capaPines        = null;  // L.layerGroup pines clientes
+let _mapaEstado       = "antes";
+
+function mostrarMapaAntes()   { _mapaEstado="antes";   _syncMapaBtns(); _actualizarCapas(); }
+function mostrarMapaDespues() { _mapaEstado="despues"; _syncMapaBtns(); _actualizarCapas(); }
+function mostrarMapaAmbas()   { _mapaEstado="ambas";   _syncMapaBtns(); _actualizarCapas(); }
+
+function _syncMapaBtns() {
+  ["antes","despues","ambas"].forEach(k => {
+    const btn = document.getElementById(`mapa-btn-${k}`);
+    if (!btn) return;
+    btn.classList.toggle("btn--active-toggle", _mapaEstado === k);
+  });
+}
+
+function renderMapa() {
+  _syncMapaBtns();
+  if (!_leafletMap) {
+    _iniciarLeaflet();
+  } else {
+    _leafletMap.invalidateSize(true);
+  }
+  if (_leafletMap) _dibujarTodo();
+}
+
+function _iniciarLeaflet() {
+  const contenedor = document.getElementById("mapa-leaflet");
+  if (!contenedor) return;
+
+  if (typeof L === "undefined") {
+    contenedor.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94A3B8;font-size:13px;padding:20px;text-align:center">
+      ⚠ Leaflet no cargó. Verifica tu conexión a internet y recarga la página.</div>`;
+    return;
+  }
+
+  // Si el mapa ya existe, solo corregir tamaño y garantizar capas
+  if (_leafletMap) {
+    _leafletMap.invalidateSize(true);
+    // Reconstruir capas si se perdieron (puede ocurrir al ocultar/mostrar el div)
+    if (!_capaAntes)   { _capaAntes   = L.layerGroup().addTo(_leafletMap); }
+    if (!_capaDespues) { _capaDespues = L.layerGroup().addTo(_leafletMap); }
+    if (!_capaPines)   { _capaPines   = L.layerGroup().addTo(_leafletMap); }
+    return;
+  }
+
+  // Primera inicialización
+  _leafletMap = L.map("mapa-leaflet", {
+    center: DEPOSITO_COORDS,
+    zoom: 13,
+    zoomControl: true,
+    attributionControl: true,
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(_leafletMap);
+
+  // Pin del depósito
+  const iconDep = L.divIcon({
+    className: "",
+    html: `<div class="deposito-pin">CPC</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+  });
+
+  L.marker(DEPOSITO_COORDS, { icon: iconDep })
+    .addTo(_leafletMap)
+    .bindPopup("<strong>🏭 Depósito CPC Corona</strong><br>Punto de origen de todas las rutas");
+
+  // Crear grupos de capas SIEMPRE aquí
+  _capaAntes   = L.layerGroup().addTo(_leafletMap);
+  _capaDespues = L.layerGroup().addTo(_leafletMap);
+  _capaPines   = L.layerGroup().addTo(_leafletMap);
+}
+
+function _dibujarTodo() {
+  if (!_leafletMap) return;
+  // Seguridad: reconstruir capas si por algún motivo son null
+  if (!_capaAntes)   _capaAntes   = L.layerGroup().addTo(_leafletMap);
+  if (!_capaDespues) _capaDespues = L.layerGroup().addTo(_leafletMap);
+  if (!_capaPines)   _capaPines   = L.layerGroup().addTo(_leafletMap);
+
+  _capaAntes.clearLayers();
+  _capaDespues.clearLayers();
+  _capaPines.clearLayers();
+
+  const clientes    = AppData.clientes;
+  const conCoords   = clientes.filter(c => c.lat && c.lng);
+  const sinCoords   = clientes.filter(c => !c.lat || !c.lng);
+
+  // Actualizar aviso de coordenadas faltantes
+  const tip = document.getElementById("mapa-coord-tip");
+  if (tip) {
+    if (sinCoords.length === 0) {
+      tip.style.display = "none";
+    } else {
+      tip.style.display = "block";
+      tip.innerHTML = `⚠ <strong>${sinCoords.length} cliente(s) sin coordenadas</strong> no aparecen en el mapa: 
+        ${sinCoords.map(c=>`<em>${c.nombre}</em>`).join(", ")}. 
+        Agrégalas en <strong>Clientes</strong> (lat/lng). Google Maps → clic derecho sobre el lugar → primer número = lat, segundo = lng.`;
+    }
+  }
+
+  if (!conCoords.length) return;
+
+  // ── Pines de clientes ──
+  conCoords.forEach((c, i) => {
+    const color = COLORES_PRIO_LEAFLET[c.prioridad] || "#64748B";
+    const num   = clientes.indexOf(c) + 1;
+
+    const icono = L.divIcon({
+      className: "",
+      html: `<div style="
+        background:${color};
+        color:#fff;
+        font-weight:700;
+        font-size:11px;
+        width:26px;height:26px;
+        border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        border:2.5px solid #fff;
+        box-shadow:0 2px 6px rgba(0,0,0,.3);
+        font-family:sans-serif;
+      ">${num}</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+      popupAnchor: [0, -16],
+    });
+
+    const prioLabel = { alta:"🔴 Alta", media:"🟡 Media", baja:"⚫ Baja" };
+    L.marker([c.lat, c.lng], { icon: icono })
+      .addTo(_capaPines)
+      .bindPopup(`
+        <div style="font-family:sans-serif;min-width:180px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px">${c.nombre}</div>
+          <div style="font-size:11px;color:#475569;margin-bottom:4px">📍 ${c.dir}</div>
+          <div style="font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:3px">
+            <span>Prioridad:</span><strong>${prioLabel[c.prioridad]||c.prioridad}</strong>
+            <span>Demanda:</span><strong>${c.demanda} cajas</strong>
+            <span>Descarga:</span><strong>${c.tiempo} min</strong>
+            <span>Ventana:</span><strong>${c.ventana}</strong>
+            <span>Visitas:</span><strong>${c.freq}x/semana</strong>
+            <span>Distancia:</span><strong>${c.km} km</strong>
+          </div>
+        </div>
+      `);
+  });
+
+  // Ajustar vista al conjunto de pines
+  const bounds = L.latLngBounds([DEPOSITO_COORDS, ...conCoords.map(c=>[c.lat,c.lng])]);
+  _leafletMap.fitBounds(bounds, { padding:[30,30] });
+
+  _actualizarCapas();
+}
+
+function _actualizarCapas() {
+  if (!_leafletMap) return;
+  _capaAntes.clearLayers();
+  _capaDespues.clearLayers();
+
+  const clientes  = AppData.clientes.filter(c => c.lat && c.lng);
+  const o         = AppData.ultimaOptimizacion;
+
+  // ── RUTA ANTES: orden original de la lista ──
+  if (_mapaEstado === "antes" || _mapaEstado === "ambas") {
+    if (clientes.length) {
+      const coords = [DEPOSITO_COORDS, ...clientes.map(c=>[c.lat,c.lng]), DEPOSITO_COORDS];
+      L.polyline(coords, {
+        color: "#E34948",
+        weight: _mapaEstado === "ambas" ? 3 : 4,
+        opacity: _mapaEstado === "ambas" ? 0.75 : 0.9,
+        dashArray: _mapaEstado === "ambas" ? "8,5" : null,
+      }).addTo(_capaAntes)
+        .bindPopup("<strong>📍 Ruta actual</strong><br>Secuencia sin optimizar");
+
+      // Flechas de dirección cada 3er segmento
+      for (let i = 0; i < coords.length - 1; i++) {
+        const mid = [(coords[i][0]+coords[i+1][0])/2, (coords[i][1]+coords[i+1][1])/2];
+        L.circleMarker(mid, { radius:3, color:"#E34948", fillColor:"#E34948", fillOpacity:0.7, weight:0 }).addTo(_capaAntes);
+      }
+    }
+  }
+
+  // ── RUTA DESPUÉS: orden VRP ──
+  if (_mapaEstado === "despues" || _mapaEstado === "ambas") {
+    if (o && o.rutas && o.rutas.length) {
+      o.rutas.forEach((ruta, ri) => {
+        const color = COLORES_RUTA_LEAFLET[ri % COLORES_RUTA_LEAFLET.length];
+        const pts   = ruta.clientes
+          .map(rc => AppData.clientes.find(c => c.nombre.trim().toLowerCase() === rc.nombre.trim().toLowerCase()))
+          .filter(c => c && c.lat && c.lng)
+          .map(c => [c.lat, c.lng]);
+
+        if (!pts.length) return;
+
+        const coords = [DEPOSITO_COORDS, ...pts, DEPOSITO_COORDS];
+        L.polyline(coords, {
+          color, weight:4, opacity:0.9,
+        }).addTo(_capaDespues)
+          .bindPopup(`<strong>⚡ Ruta VRP ${ri+1}</strong><br>${ruta.clientes.length} paradas · ${Math.round(ruta.km)} km · $${ruta.costo.toLocaleString()}`);
+      });
+    } else if (_mapaEstado === "despues") {
+      // Aviso flotante como popup centrado
+      L.popup({ closeButton:false })
+        .setLatLng(DEPOSITO_COORDS)
+        .setContent("<div style='text-align:center;font-family:sans-serif;font-size:12px'>⚡ Ejecuta la <strong>optimización</strong><br>para ver la ruta VRP</div>")
+        .openOn(_leafletMap);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ETL HANDLERS
+// ═══════════════════════════════════════════════════════════════
+function onETLSeleccionado(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById("etl-nombre").textContent = file.name;
+  document.getElementById("etl-status").textContent = "Procesando…";
+  document.getElementById("etl-status").className = "etl-status";
+  ETL.importar(file,
+    (r) => {
+      let msg=`✓ Importado: ${r.clientes} clientes, ${r.rutas} rutas`;
+      if (r.vehiculo) msg+=", parámetros del vehículo";
+      if (r.errores.length) msg+=` · ⚠ ${r.errores.join("; ")}`;
+      document.getElementById("etl-status").textContent=msg;
+      document.getElementById("etl-status").className="etl-status etl-status--ok";
+      UI.toast(`ETL cargado: ${r.clientes} clientes, ${r.rutas} rutas ✓`);
+      renderTablaClientes();
+      renderTablaRutas();
+      if (_leafletMap) _dibujarTodo();   // ← actualizar mapa con nuevos datos
+    },
+    (err) => {
+      document.getElementById("etl-status").textContent="✗ "+err;
+      document.getElementById("etl-status").className="etl-status etl-status--error";
+      UI.toast(err,"error");
+    }
+  );
+  e.target.value="";
+}
+
+function onETLDrop(e) {
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  document.getElementById("etl-nombre").textContent=file.name;
+  document.getElementById("etl-status").textContent="Procesando…";
+  document.getElementById("etl-status").className="etl-status";
+  ETL.importar(file,
+    (r)=>{
+      let msg=`✓ Importado: ${r.clientes} clientes, ${r.rutas} rutas`;
+      if (r.vehiculo) msg+=", parámetros del vehículo";
+      if (r.errores&&r.errores.length) msg+=` · ⚠ ${r.errores.join("; ")}`;
+      document.getElementById("etl-status").textContent=msg;
+      document.getElementById("etl-status").className="etl-status etl-status--ok";
+      UI.toast(`ETL cargado: ${r.clientes} clientes, ${r.rutas} rutas ✓`);
+      renderTablaClientes();
+      renderTablaRutas();
+      if (_leafletMap) _dibujarTodo();   // ← actualizar mapa con nuevos datos
+    },
+    (err)=>{
+      document.getElementById("etl-status").textContent="✗ "+err;
+      document.getElementById("etl-status").className="etl-status etl-status--error";
+      UI.toast(err,"error");
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORTAR RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderExportar() {
+  document.getElementById("cnt-exp-c").textContent=`${AppData.clientes.length} clientes`;
+  document.getElementById("cnt-exp-r").textContent=`${AppData.rutas.length} registros`;
+  document.getElementById("cnt-exp-o").textContent=AppData.ultimaOptimizacion?"Listo para exportar":"Ejecuta la optimización primero";
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL LIMPIAR DATOS
+// ═══════════════════════════════════════════════════════════════
+function abrirModalLimpiar() {
+  // Actualizar contadores en el modal
+  document.getElementById("modal-cnt-clientes").textContent =
+    `${AppData.clientes.length} cliente${AppData.clientes.length !== 1 ? "s" : ""}`;
+  document.getElementById("modal-cnt-rutas").textContent =
+    `${AppData.rutas.length} registro${AppData.rutas.length !== 1 ? "s" : ""}`;
+  document.getElementById("modal-cnt-opt").textContent =
+    AppData.ultimaOptimizacion ? "Hay un resultado guardado" : "Sin optimización ejecutada";
+
+  // Desmarcar todos los checkboxes
+  ["chk-clientes","chk-rutas","chk-opt"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  ["opt-clientes-label","opt-rutas-label","opt-opt-label"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("modal__opt--checked");
+  });
+
+  document.getElementById("modal-limpiar").classList.add("modal-overlay--open");
+}
+
+function cerrarModalLimpiar() {
+  document.getElementById("modal-limpiar").classList.remove("modal-overlay--open");
+}
+
+function toggleOptStyle(labelId, chkId) {
+  const checked = document.getElementById(chkId)?.checked;
+  document.getElementById(labelId)?.classList.toggle("modal__opt--checked", checked);
+}
+
+function ejecutarLimpieza() {
+  const borrarClientes = document.getElementById("chk-clientes")?.checked;
+  const borrarRutas    = document.getElementById("chk-rutas")?.checked;
+  const borrarOpt      = document.getElementById("chk-opt")?.checked;
+
+  if (!borrarClientes && !borrarRutas && !borrarOpt) {
+    UI.toast("Selecciona al menos un tipo de dato para borrar.", "warn");
+    return;
+  }
+
+  const partes = [];
+
+  if (borrarClientes) {
+    AppData.clientes = [];
+    localStorage.removeItem("vrp_clientes");
+    partes.push("clientes");
+  }
+  if (borrarRutas) {
+    AppData.rutas = [];
+    localStorage.removeItem("vrp_rutas");
+    partes.push("rutas");
+  }
+  if (borrarOpt) {
+    AppData.ultimaOptimizacion = null;
+    partes.push("optimización");
+  }
+
+  // Refrescar vistas afectadas
+  if (borrarClientes) renderTablaClientes();
+  if (borrarRutas)    renderTablaRutas();
+  if (borrarOpt) {
+    const r = document.getElementById("resultado-opt");
+    if (r) r.style.display = "none";
+  }
+
+  // Si estamos en una sección afectada, forzar re-render
+  const tabActual = document.querySelector(".nav__btn--active")?.dataset?.tab;
+  if (tabActual === "dashboard")  renderDashboard();
+  if (tabActual === "comparar")   renderComparativo();
+  if (tabActual === "exportar")   renderExportar();
+  if (tabActual === "mapa")       renderMapa();
+
+  cerrarModalLimpiar();
+  UI.toast(`Datos eliminados: ${partes.join(", ")} ✓`, "warn");
+}
+
+// Cerrar modal al hacer clic en el overlay
+document.getElementById("modal-limpiar").addEventListener("click", function(e) {
+  if (e.target === this) cerrarModalLimpiar();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  AppData.cargar();
+  navegar("dashboard");
+  const v = AppData.vehiculo;
+  document.getElementById("v-cap").value     = v.capacidad;
+  document.getElementById("v-cpm").value     = v.costoPorKm;
+  document.getElementById("v-rend").value    = v.rendimiento;
+  document.getElementById("v-gas").value     = v.precioGas;
+  document.getElementById("v-hora").value    = v.costoOperador;
+  document.getElementById("v-jornada").value = v.jornadaMax;
+
+  // Inicializar Leaflet aquí: #sec-mapa siempre tiene display:block
+  // (usa visibility:hidden cuando no está activo) así Leaflet puede
+  // calcular las dimensiones reales del div desde el arranque.
+  _iniciarLeaflet();
+});
+</script>
+</body>
+</html>
